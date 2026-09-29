@@ -43,10 +43,14 @@ def _impl(repository_ctx):
             elixir_home = repository_ctx.attr.elixir_homes.get(name, None),
         )
 
-    # If we intentionally skipped probing a host-installed Elixir, still provide
-    # a default "external" entry so default toolchain registration succeeds.
+    # Without host discovery, "external" stands for the root module's first
+    # installation, so the default toolchain registration still resolves. It is
+    # never taken from another module in the graph.
     if _DEFAULT_EXTERNAL_ELIXIR_PACKAGE_NAME not in elixir_installations and elixir_installations:
-        elixir_installations[_DEFAULT_EXTERNAL_ELIXIR_PACKAGE_NAME] = elixir_installations[list(elixir_installations.keys())[0]]
+        default = repository_ctx.attr.default_installation
+        if not default:
+            fail("Host Elixir discovery is disabled; declare an Elixir installation in the root module")
+        elixir_installations[_DEFAULT_EXTERNAL_ELIXIR_PACKAGE_NAME] = elixir_installations[default]
 
     for (name, props) in elixir_installations.items():
         if props.type == INSTALLATION_TYPE_EXTERNAL:
@@ -119,6 +123,9 @@ elixir_config = repository_rule(
         "strip_prefixs": attr.string_dict(),
         "sha256s": attr.string_dict(),
         "elixir_homes": attr.string_dict(),
+        "default_installation": attr.string(
+            doc = "The root module's first installation, used as external when host discovery is disabled.",
+        ),
     },
     environ = [
         ELIXIR_HOME_ENV_VAR,
@@ -221,9 +228,9 @@ constraint_value(
 
 """
 
-    # Prefer the first configured installation as the default instead of assuming
-    # a host system Elixir exists everywhere (e.g., on remote executors).
-    default_installation = elixir_installations.values()[0]
+    # The external entry is the default: either the discovered host Elixir or,
+    # without discovery, the root module's first installation.
+    default_installation = elixir_installations[_DEFAULT_EXTERNAL_ELIXIR_PACKAGE_NAME]
 
     build_file_content += """\
 constraint_setting(

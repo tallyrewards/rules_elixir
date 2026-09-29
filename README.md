@@ -80,13 +80,35 @@ register_toolchains("@elixir_config//external:toolchain")
 ```
 
 That uses the Elixir already on the machine. To have Bazel fetch and build a
-pinned Elixir instead:
+pinned Elixir instead, declare it and register its toolchain:
 
 ```starlark
 elixir_config.internal_elixir_from_github_release(
+    name = "pinned",
     version = "1.20.3",
     sha256 = "ff22a894b130631443db1a193b4e8cb4762f697128566e43da848fd16c3777bd",
 )
+
+register_toolchains("@elixir_config//pinned:toolchain")
+```
+
+Installation names are global to the module graph; declaring one twice is an
+error. Declaring an installation does not replace the host Elixir by itself:
+fetched toolchains are only selected on an execution platform with the
+`@elixir_config//:elixir_internal` constraint, so add a platform and select it:
+
+```starlark
+# BUILD.bazel
+platform(
+    name = "hermetic",
+    constraint_values = ["@elixir_config//:elixir_internal"],
+    parents = ["@platforms//host:host"],
+)
+```
+
+```
+# .bazelrc
+build --extra_execution_platforms=//:hermetic
 ```
 
 The `sha256` is of the source archive the extension fetches, which is
@@ -105,6 +127,9 @@ Elixir install at all. That is what you want when every toolchain is hermetic:
 build --repo_env=RULES_ELIXIR_SKIP_SYSTEM=1
 build --repo_env=RULES_ERLANG_SKIP_SYSTEM=1
 ```
+
+`@elixir_config//external:toolchain` then refers to the root module's first
+declared installation, which still needs the platform above.
 
 ## Rules
 

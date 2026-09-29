@@ -17,8 +17,30 @@ def _elixir_config(ctx):
     strip_prefixs = {}
     sha256s = {}
     elixir_homes = {}
+    owners = {}
+    root_installations = []
 
     for mod in ctx.modules:
+        # Names are global to the generated repository. A second declaration must
+        # not replace the first, or any module in the graph could swap another
+        # module's pinned archive for its own.
+        for elixir in (
+            mod.tags.external_elixir_from_path +
+            mod.tags.internal_elixir_from_http_archive +
+            mod.tags.internal_elixir_from_github_release +
+            mod.tags.prebuilt_elixir_from_http_archive +
+            mod.tags.prebuilt_elixir_from_hex_builds
+        ):
+            if elixir.name in owners:
+                fail("Elixir installation '{}' is declared by both {} and {}; installation names must be unique".format(
+                    elixir.name,
+                    owners[elixir.name],
+                    mod.name,
+                ))
+            owners[elixir.name] = mod.name
+            if mod.is_root:
+                root_installations.append(elixir.name)
+
         for elixir in mod.tags.external_elixir_from_path:
             types[elixir.name] = INSTALLATION_TYPE_EXTERNAL
             versions[elixir.name] = elixir.version
@@ -75,6 +97,7 @@ def _elixir_config(ctx):
         strip_prefixs = strip_prefixs,
         sha256s = sha256s,
         elixir_homes = elixir_homes,
+        default_installation = root_installations[0] if root_installations else "",
     )
 
 external_elixir_from_path = tag_class(attrs = {

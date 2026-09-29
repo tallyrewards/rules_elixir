@@ -84,6 +84,13 @@ jobs:
           name: bazel-testlogs-${{ matrix.otp }}
           path: |
             test/bazel-testlogs/*
+  installation-names:
+    runs-on: ubuntu-latest
+    steps:
+      - name: CHECKOUT REPOSITORY
+        uses: actions/checkout@v4
+      - name: CHECK INSTALLATION NAMES ACROSS MODULES
+        run: bash tests/installation_names.sh
   examples-basic:
     runs-on: ubuntu-latest
     strategy:
