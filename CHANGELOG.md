@@ -11,6 +11,7 @@
 - Normalize temporary source paths in BEAM debug and documentation metadata.
 - Materialize checked-in dependency graphs and reject ambiguous sources, missing edges and cycles.
 - Check manifest drift offline, including verified Git provenance without checkout metadata.
+- Compile each dependency against only the root configuration keys it reads.
 - Reject an override target that provides a different application.
 
 ## 1.3.0

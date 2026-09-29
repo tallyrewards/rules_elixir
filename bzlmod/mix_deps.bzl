@@ -128,7 +128,8 @@ def _graph_impl(ctx):
             source + "sources",
             _select(deps),
             _select(environments),
-            repr(ctx.attr.compile_config) if ctx.attr.compile_config else "None",
+            # Mix compiles Rebar dependencies without the root configuration.
+            repr(ctx.attr.compile_config) if ctx.attr.compile_config and package["manager"] == "mix" else "None",
         ))
     ctx.file("BUILD.bazel", "\n\n".join(build) + "\n")
 

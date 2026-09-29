@@ -3,8 +3,13 @@
 load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@rules_erlang//:erlang_app_info.bzl", "ErlangAppInfo")
-load("//:mix_config.bzl", "MixConfigInfo")
 load(":elixir_toolchain.bzl", "elixir_dirs", "erlang_dirs", "maybe_install_erlang")
+
+MixConfigInfo = provider(fields = {
+    "entrypoint": "Config entrypoint",
+    "files": "All imported config/data inputs",
+    "evaluated": "Configuration evaluated for the root environment, one application key per line",
+})
 
 MixProjectInfo = provider(fields = {
     "config": "Source and dependency description for assembly/test consumers",
@@ -65,12 +70,62 @@ export ERL_FLAGS="${{ERL_FLAGS:-}} +fnu"
 export ERL_COMPILER_OPTIONS=deterministic
 """.format(setup = tc.setup, elixir = shell.quote(tc.elixir), erlang = shell.quote(tc.erlang))
 
-def invocation(ctx, config, tc):
-    return _environment(tc) + """
+def _invoke(ctx, config, status = None):
+    command = """
 WORK=$(mktemp -d "${{TMPDIR:-/tmp}}/rules-elixir.XXXXXXXX")
 trap 'rm -rf "$WORK"' EXIT
 "$ELIXIR/bin/elixir" {runner} {config} "$WORK" "$@"
 """.format(runner = shell.quote(ctx.file._runner.path), config = shell.quote(config.path))
+    if status:
+        # A failure recorded in the status file is expected; only a successful
+        # compilation's diagnostics are worth showing.
+        command = command.replace('"$@"\n', '"$@" > "$WORK.log" 2>&1 || {{ cat "$WORK.log"; exit 1; }}\n'.format())
+        command += """if [[ "$(cat {status})" == ok ]]; then cat "$WORK.log"; fi
+rm -f "$WORK.log"
+""".format(status = shell.quote(status.path))
+    return command
+
+def invocation(ctx, config, tc):
+    return _environment(tc) + _invoke(ctx, config)
+
+def _config_impl(ctx):
+    files = depset(ctx.files.srcs + [ctx.file.config])
+    environment = ctx.attr._mix_env[BuildSettingInfo].value
+    evaluated = ctx.actions.declare_file(ctx.label.name + ".config")
+    config_file = ctx.actions.declare_file(ctx.label.name + ".config.json")
+    ctx.actions.write(config_file, json.encode({
+        "operation": "config",
+        "environment": environment,
+        "entrypoint": ctx.file.config.path,
+        "output": evaluated.path,
+        "sources": [],
+        "archives": [],
+    }))
+    tc = toolchain(ctx)
+    ctx.actions.run_shell(
+        inputs = depset([config_file, ctx.file._runner], transitive = [files, tc.files]),
+        outputs = [evaluated],
+        command = invocation(ctx, config_file, tc),
+        mnemonic = "MixConfig",
+        progress_message = "Evaluating %%{label} (%s)" % environment,
+        execution_requirements = {"block-network": "1"},
+    )
+    return [DefaultInfo(files = files), MixConfigInfo(entrypoint = ctx.file.config, files = files, evaluated = evaluated)]
+
+mix_config = rule(
+    implementation = _config_impl,
+    doc = "Root configuration read by dependencies while they compile.",
+    attrs = {
+        "config": attr.label(mandatory = True, allow_single_file = True),
+        "srcs": attr.label_list(allow_files = True),
+        "_mix_env": attr.label(default = Label("//:mix_env")),
+        "_runner": attr.label(default = Label("//private:mix_runner.exs"), allow_single_file = True),
+    },
+    toolchains = ["//:toolchain_type"],
+)
+
+def _declare_app(ctx, prefix):
+    return {kind: ctx.actions.declare_directory("%s/%s/%s" % (prefix, ctx.attr.app_name, kind)) for kind in ["ebin", "priv", "include", "consolidated"]}
 
 def _compile(ctx, manager):
     environment = ctx.attr.environment or ctx.attr._mix_env[BuildSettingInfo].value
@@ -102,7 +157,7 @@ def _compile(ctx, manager):
         if len(generated) != 1:
             fail("generated_srcs entries must produce one file or TreeArtifact")
         sources.append({"source": generated[0].path, "destination": project_dir + "/" + destination if project_dir else destination})
-    outputs = {kind: ctx.actions.declare_directory("%s/%s/%s" % (ctx.label.name, ctx.attr.app_name, kind)) for kind in ["ebin", "priv", "include", "consolidated"]}
+    outputs = _declare_app(ctx, ctx.label.name)
     config = {
         "operation": "compile" if manager == "mix" else manager,
         "app": ctx.attr.app_name,
@@ -118,26 +173,18 @@ def _compile(ctx, manager):
     }
     if manager == "rebar3":
         config["rebar3"] = ctx.file._rebar3.path
-    config_inputs = depset()
-    if ctx.attr.compile_config:
-        compile_config = ctx.attr.compile_config[MixConfigInfo]
-        config_inputs = compile_config.files
-        config["compile_config"] = compile_config.entrypoint.path
-        config["config_environment"] = ctx.attr._mix_env[BuildSettingInfo].value
-    config_file = ctx.actions.declare_file(ctx.label.name + ".mix.json")
-    ctx.actions.write(config_file, json.encode(config))
-    inputs = depset(ctx.files.srcs + ctx.files.generated_srcs + [ctx.file.project_file, ctx.file._beam_metadata] + ctx.files.archives + dependency_inputs(apps) + ([ctx.file._rebar3] if manager == "rebar3" else []), transitive = [config_inputs])
+    if ctx.attr.compile_config and (manager != "mix" or not ctx.attr.is_dependency):
+        fail("compile_config applies to Mix dependencies; a root application loads its own configuration, and Rebar applications compile without it")
+    inputs = depset(ctx.files.srcs + ctx.files.generated_srcs + [ctx.file.project_file, ctx.file._beam_metadata] + ctx.files.archives + dependency_inputs(apps) + ([ctx.file._rebar3] if manager == "rebar3" else []))
     tc = toolchain(ctx)
-    ctx.actions.run_shell(
-        inputs = depset([config_file, ctx.file._runner], transitive = [inputs, tc.files]),
-        outputs = outputs.values(),
-        command = invocation(ctx, config_file, tc),
-        mnemonic = "MixCompile" if manager == "mix" else "RebarCompile",
-        progress_message = "%s compiling %s (%s)" % (manager, ctx.attr.app_name, environment),
-        execution_requirements = {"block-network": "1"},
-    )
+    validations = []
+    if ctx.attr.compile_config:
+        (config, validations) = _configured_compile(ctx, config, inputs, outputs, tc, environment)
+    else:
+        _run(ctx, config, inputs, outputs.values(), tc, "MixCompile" if manager == "mix" else "RebarCompile", "%s compiling %s (%s)" % (manager, ctx.attr.app_name, environment))
     providers = [
         DefaultInfo(files = depset(outputs.values())),
+        OutputGroupInfo(_validation = depset(validations)),
         ErlangAppInfo(
             app_name = ctx.attr.app_name,
             extra_apps = [],
@@ -153,6 +200,104 @@ def _compile(ctx, manager):
     if manager == "mix":
         providers.append(MixProjectInfo(config = config, inputs = inputs, environment = environment, consolidated = outputs["consolidated"]))
     return providers
+
+def _run(ctx, config, inputs, outputs, tc, mnemonic, progress_message, prelude = "", status = None):
+    config_file = ctx.actions.declare_file("%s.%s.mix.json" % (ctx.label.name, mnemonic.lower()))
+    ctx.actions.write(config_file, json.encode(config))
+    ctx.actions.run_shell(
+        inputs = depset([config_file, ctx.file._runner], transitive = [inputs, tc.files]),
+        outputs = outputs,
+        command = _environment(tc) + prelude + _invoke(ctx, config_file, status),
+        mnemonic = mnemonic,
+        progress_message = progress_message,
+        execution_requirements = {"block-network": "1"},
+    )
+
+def _configured_compile(ctx, config, inputs, outputs, tc, environment):
+    """Compile a dependency against only the root configuration it reads.
+
+    The first compilation sees no root configuration and records every
+    application environment key it reads. Those keys select the configured
+    values, and only a non-empty selection compiles again. A configuration
+    edit therefore reaches just the dependencies that read the edited keys.
+    """
+    app = ctx.attr.app_name
+    evaluated = ctx.attr.compile_config[MixConfigInfo].evaluated
+    unconfigured = _declare_app(ctx, ctx.label.name + "/unconfigured")
+    first_reads = ctx.actions.declare_file("%s/unconfigured/%s.reads" % (ctx.label.name, app))
+    status = ctx.actions.declare_file("%s/unconfigured/%s.status" % (ctx.label.name, app))
+    _run(
+        ctx,
+        dict(config, outputs = {k: v.path for k, v in unconfigured.items()}, reads = first_reads.path, status = status.path),
+        inputs,
+        unconfigured.values() + [first_reads, status],
+        tc,
+        "MixCompile",
+        "Mix compiling %s (%s)" % (app, environment),
+        status = status,
+    )
+
+    projection = ctx.actions.declare_file("%s/%s.config" % (ctx.label.name, app))
+    ctx.actions.run_shell(
+        inputs = [first_reads, evaluated],
+        outputs = [projection],
+        command = """awk -F '\\t' 'FILENAME == ARGV[1] {{ read[$1 FS $2] = 1; next }} (($1 FS $2) in read) || (($1 FS) in read)' {reads} {config} > {out}""".format(
+            reads = shell.quote(first_reads.path),
+            config = shell.quote(evaluated.path),
+            out = shell.quote(projection.path),
+        ),
+        mnemonic = "MixConfigSelect",
+        progress_message = "Selecting configuration read by %s" % app,
+    )
+
+    reads = ctx.actions.declare_file("%s/%s.reads" % (ctx.label.name, app))
+    copy = ["if [[ ! -s {} && \"$(cat {})\" == ok ]]; then".format(shell.quote(projection.path), shell.quote(status.path))]
+    for kind in outputs:
+        copy.append("  mkdir -p {out} && cp -R {src}/. {out}/".format(src = shell.quote(unconfigured[kind].path), out = shell.quote(outputs[kind].path)))
+    copy += ["  cp {} {}".format(shell.quote(first_reads.path), shell.quote(reads.path)), "  exit 0", "fi", ""]
+    configured = dict(config, outputs = {k: v.path for k, v in outputs.items()}, reads = reads.path, projection = projection.path)
+    _run(
+        ctx,
+        configured,
+        depset([projection, status, first_reads] + unconfigured.values(), transitive = [inputs]),
+        outputs.values() + [reads],
+        tc,
+        "MixConfigure",
+        "Mix configuring %s (%s)" % (app, environment),
+        prelude = "\n".join(copy),
+    )
+
+    # Compiling with configured values can take branches the unconfigured
+    # compilation did not. Reject a configured key read only on such a branch
+    # rather than compiling without its value.
+    validation = ctx.actions.declare_file("%s/%s.config_checked" % (ctx.label.name, app))
+    ctx.actions.run_shell(
+        inputs = [projection, evaluated, reads],
+        outputs = [validation],
+        command = """awk -F '\\t' -v app={app} '
+FILENAME == ARGV[1] {{ projected[$1 FS $2] = 1; next }}
+FILENAME == ARGV[2] {{ configured[$1 FS $2] = $1; next }}
+$2 == "" {{ whole[$1] = 1; next }}
+(($1 FS $2) in configured) && !(($1 FS $2) in projected) {{ missing[$1 FS $2] = 1 }}
+END {{
+  for (key in configured) if ((configured[key] in whole) && !(key in projected)) missing[key] = 1
+  for (key in missing) {{
+    split(key, part, FS)
+    printf "%s read configured %s %s only when compiled with its configuration; that value was not supplied\\n", app, part[1], part[2] > "/dev/stderr"
+    failed = 1
+  }}
+  exit failed
+}}' {projection} {config} {reads} && touch {out}""".format(
+            app = shell.quote(app),
+            projection = shell.quote(projection.path),
+            config = shell.quote(evaluated.path),
+            reads = shell.quote(reads.path),
+            out = shell.quote(validation.path),
+        ),
+        mnemonic = "MixConfigCheck",
+        progress_message = "Checking configuration read by %s" % app,
+    )
+    return (configured, [validation])
 
 def _impl(ctx):
     return _compile(ctx, "mix")

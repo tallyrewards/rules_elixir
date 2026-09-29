@@ -29,6 +29,15 @@ defmodule RulesElixir.MixRunner do
 
     Mix.Local.append_archives()
 
+    if config["operation"] == "config" do
+      evaluate_config(
+        Path.expand(config["entrypoint"], execroot),
+        Path.expand(config["output"], execroot)
+      )
+
+      System.halt(0)
+    end
+
     if config["operation"] == "sync" do
       inputs = Enum.flat_map(config["inputs"], &["--input", &1])
 
@@ -128,17 +137,15 @@ defmodule RulesElixir.MixRunner do
             unless to_string(Mix.Project.config()[:app]) == config["app"],
               do: raise("Bazel app_name differs from Mix project application")
 
-            if config_path = config["compile_config"] do
-              old_env = Mix.env()
-              Mix.env(String.to_atom(config["config_environment"]))
+            cond do
+              projection = config["projection"] ->
+                load_projection(Path.expand(projection, execroot))
 
-              try do
-                Mix.Tasks.Loadconfig.run([Path.expand(config_path, execroot)])
-              after
-                Mix.env(old_env)
-              end
-            else
-              unless config["is_dependency"], do: Mix.Tasks.Loadconfig.run([])
+              config["is_dependency"] ->
+                :ok
+
+              true ->
+                Mix.Tasks.Loadconfig.run([])
             end
 
             case config["operation"] do
@@ -147,20 +154,135 @@ defmodule RulesElixir.MixRunner do
 
                 # Aliases may generate resources. They run only in this compile
                 # action; tests and releases call their assembly-only tasks directly.
-                case Mix.Task.run("compile", args) do
-                  {:error, diagnostics} ->
-                    raise("Mix compilation failed: #{inspect(diagnostics)}")
+                compile = fn ->
+                  case Mix.Task.run("compile", args) do
+                    {:error, diagnostics} ->
+                      raise("Mix compilation failed: #{inspect(diagnostics)}")
 
-                  _ ->
-                    :ok
+                    _ ->
+                      :ok
+                  end
+
+                  export_app(config, Mix.Project.app_path(), execroot)
                 end
 
-                export_app(config, Mix.Project.app_path(), execroot)
+                if reads = config["reads"] do
+                  record_config_reads(Path.expand(reads, execroot), fn ->
+                    compile_or_record_failure(config, execroot, compile)
+                  end)
+                else
+                  compile.()
+                end
             end
           end
         )
       end
     end)
+  end
+
+  # One line per application key: app, key and the value's external term
+  # format. Sorted, so an unchanged configuration produces identical bytes.
+  defp evaluate_config(entrypoint, output) do
+    {entries, _imports} =
+      Config.Reader.read_imports!(entrypoint, env: Mix.env(), target: Mix.target())
+
+    lines =
+      for {app, values} <- entries, {key, value} <- values do
+        encoded = value |> :erlang.term_to_binary([:deterministic]) |> Base.encode64()
+        Enum.join([config_name(app), config_name(key), encoded], "\t") <> "\n"
+      end
+
+    File.write!(output, lines |> Enum.sort() |> Enum.join())
+  end
+
+  defp config_name(atom) do
+    name = Atom.to_string(atom)
+
+    if String.contains?(name, ["\t", "\n"]),
+      do: raise("configuration names cannot contain tabs or newlines: #{inspect(atom)}")
+
+    name
+  end
+
+  defp load_projection(path) do
+    for line <- String.split(File.read!(path), "\n", trim: true) do
+      [app, key, value] = String.split(line, "\t")
+      value = value |> Base.decode64!() |> :erlang.binary_to_term()
+      Application.put_env(String.to_atom(app), String.to_atom(key), value, persistent: true)
+    end
+  end
+
+  # Every application environment lookup goes through these functions,
+  # including Application.compile_env and reads the compiler does not track.
+  @config_reads [
+    {:application, :get_env, 2},
+    {:application, :get_env, 3},
+    {:application, :get_all_env, 1}
+  ]
+
+  defp record_config_reads(path, fun) do
+    tracer = spawn_link(fn -> collect_config_reads(MapSet.new()) end)
+    for mfa <- @config_reads, do: :erlang.trace_pattern(mfa, true, [:global])
+    :erlang.trace(:all, true, [:call, {:tracer, tracer}])
+
+    try do
+      fun.()
+    after
+      :erlang.trace(:all, false, [:call])
+      for mfa <- @config_reads, do: :erlang.trace_pattern(mfa, false, [:global])
+      delivered = :erlang.trace_delivered(:all)
+
+      receive do
+        {:trace_delivered, :all, ^delivered} -> :ok
+      end
+
+      send(tracer, {:done, self()})
+
+      reads =
+        receive do
+          {:config_reads, ^tracer, reads} -> reads
+        end
+
+      lines =
+        for {app, key} <- reads do
+          config_name(app) <> "\t" <> if(key, do: config_name(key), else: "") <> "\n"
+        end
+
+      File.write!(path, lines |> Enum.sort() |> Enum.join())
+    end
+  end
+
+  defp collect_config_reads(reads) do
+    receive do
+      {:trace, _, :call, {:application, :get_env, [app, key | _]}}
+      when is_atom(app) and is_atom(key) ->
+        collect_config_reads(MapSet.put(reads, {app, key}))
+
+      {:trace, _, :call, {:application, :get_all_env, [app]}} when is_atom(app) ->
+        collect_config_reads(MapSet.put(reads, {app, nil}))
+
+      {:done, from} ->
+        send(from, {:config_reads, self(), reads})
+
+      _ ->
+        collect_config_reads(reads)
+    end
+  end
+
+  # The unconfigured compilation may fail, for example on compile_env!/2.
+  # Its reads still select the configuration for the compilation that counts.
+  defp compile_or_record_failure(config, execroot, compile) do
+    status = config["status"] && Path.expand(config["status"], execroot)
+
+    try do
+      compile.()
+      if status, do: File.write!(status, "ok")
+    catch
+      kind, reason ->
+        unless status, do: :erlang.raise(kind, reason, __STACKTRACE__)
+        for {_, output} <- config["outputs"], do: File.mkdir_p!(Path.expand(output, execroot))
+        File.write!(status, "failed")
+    end
   end
 
   defp export_app(config, app_path, execroot) do

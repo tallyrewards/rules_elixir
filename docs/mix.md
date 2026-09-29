@@ -99,12 +99,24 @@ their common source layout, including parent files such as `../VERSION`.
 file or TreeArtifact at a project-relative destination. Cross-repository inputs
 must use that mapping rather than relying on an accidental common prefix.
 
-`mix_config` is necessary when dependencies read root application configuration,
-including `Application.compile_env/3`. Generated dependencies load it using the
-root environment, then compile using their own resolved environment (normally
-`prod`). Configuration files participate in those actions' cache keys. Local
-path adapters should set `compile_config`, `is_dependency = True` and the
-appropriate `environment` themselves.
+`mix_config` evaluates the root configuration for the current environment.
+Dependencies compile in their own resolved environment (normally `prod`) against
+the part of it they read, as they would under Mix:
+
+1. A dependency first compiles without root configuration, recording every
+   application environment key it reads. That includes `Application.compile_env/3`
+   and `Application.get_env/3` calls the compiler does not track.
+2. The keys it read select their configured values.
+3. With no configured keys, the first result is used. Otherwise the dependency
+   compiles again with those values.
+
+A configuration edit therefore recompiles only the dependencies that read an
+edited key, and whatever is compiled against them. A dependency that reads a
+configured key only once configured (a conditional read) fails the build, naming
+the key, rather than compiling without its value. As in Mix, Rebar dependencies
+compile without root configuration. Local path adapters should set
+`compile_config`, `is_dependency = True` and the appropriate `environment`
+themselves.
 
 The canonical flag is `--@rules_elixir//:mix_env=dev|test|prod`. Test/release
 transitions change only this setting on the application edge. It is target
