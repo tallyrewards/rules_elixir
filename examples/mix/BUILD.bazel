@@ -40,10 +40,7 @@ mix_app(
         "lib/**",
         "priv/**",
     ]) + select({
-        "@rules_elixir//:mix_test": glob([
-            "support/**",
-            "test/**",
-        ]),
+        "@rules_elixir//:mix_test": glob(["support/**"]),
         "//conditions:default": [],
     }),
     app_name = "sample",
@@ -54,6 +51,7 @@ mix_app(
 
 elixir_test(
     name = "test",
+    srcs = glob(["test/**"]),
     app = ":app",
     shard_count = 2,
 )
@@ -83,6 +81,7 @@ toolchain(
 # An external CI matrix can select a Mix partition without Bazel sharding.
 elixir_test(
     name = "external_partition_test",
+    srcs = glob(["test/**"]),
     app = ":app",
     env = {
         "EXPECTED_MIX_TEST_PARTITION": "2",

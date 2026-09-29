@@ -15,6 +15,7 @@
 - Reject an override target that provides a different application.
 - Declare native compiler inputs and auxiliary tools, preserve runfiles and reject unsupported platforms.
 - Run ExUnit against the precompiled test graph and retain requested test outputs.
+- Keep test files out of application compilation; consumers stage only the project definition and their own files.
 - Set Mix partition identity before configuration and preserve external partitions when unsharded.
 
 ## 1.3.0

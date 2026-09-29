@@ -9,15 +9,21 @@ def _app(ctx):
     return ctx.attr.app[0]
 
 def _config(ctx, operation):
+    """Stage the project definition, compiled closure and the consumer's own files."""
     app = _app(ctx)
     project = app[MixProjectInfo]
     config = dict(project.config)
     apps = closure([app])
-    config.update({"operation": operation, "dependencies": dependency_description(apps)})
+    sources = list(project.project_sources)
+    for f in ctx.files.srcs:
+        if f.owner.workspace_name != app.label.workspace_name or not f.short_path.startswith(project.root):
+            fail("%s: srcs must be inside the application's project: %s" % (ctx.label, f.short_path))
+        sources.append({"source": f.path, "destination": f.short_path[len(project.root):]})
+    config.update({"operation": operation, "dependencies": dependency_description(apps), "sources": sources})
     for dep in config["dependencies"]:
         if dep["app"] == config["app"]:
             dep["files"]["consolidated"] = [project.consolidated.path]
-    return (config, depset(dependency_inputs(apps) + [project.consolidated], transitive = [project.inputs]))
+    return (config, depset(ctx.files.srcs + dependency_inputs(apps) + [project.consolidated], transitive = [project.project_files]))
 
 def _test_impl(ctx):
     (config, inputs) = _config(ctx, "test")
@@ -61,6 +67,7 @@ elixir_test = rule(
     attrs = dict(
         _COMMON,
         app = attr.label(mandatory = True, providers = [MixProjectInfo], cfg = test_transition),
+        srcs = attr.label_list(allow_files = True, doc = "Files staged into the project for the test run: test_helper.exs, tests and fixtures. They are not compiled into the application."),
         mix_args = attr.string_list(),
         env = attr.string_dict(),
         data = attr.label_list(allow_files = True),
