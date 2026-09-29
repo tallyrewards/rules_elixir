@@ -7,3 +7,5 @@ elixir_vars(
     name = "elixir_vars",
     visibility = ["//visibility:public"],
 )
+
+exports_files(["dependency_sync.exs"])

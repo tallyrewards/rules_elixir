@@ -3,6 +3,7 @@ load(
     "string_flag",
 )
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//:ex_unit_test.bzl", "ex_unit_test")
 load("//tools:elixir_vars.bzl", "ELIXIR_VARS_ENV_MAP")
 
 string_flag(
@@ -23,4 +24,10 @@ sh_test(
     data = ["@hex//:archive"],
     env = ELIXIR_VARS_ENV_MAP,
     toolchains = ["//tools:elixir_vars"],
+)
+
+ex_unit_test(
+    name = "dependency_sync_test",
+    srcs = ["tests/dependency_sync_test.exs"],
+    data = ["//tools:dependency_sync.exs"],
 )
