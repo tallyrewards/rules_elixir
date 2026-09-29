@@ -9,6 +9,14 @@ exports_files(["mix.exs", "BUILD.bazel"], visibility = ["//visibility:public"])
 filegroup(name = "sources", srcs = glob(["**"], exclude = ["BUILD", "BUILD.bazel", "**/BUILD", "**/BUILD.bazel", "**/_build/**", "**/deps/**"], allow_empty = False))
 """
 
+def _git_source_build(source):
+    # This generated input carries the identity verified by new_git_repository.
+    # Drift tests need provenance, not Git's mutable checkout database.
+    return "load(\"@bazel_skylib//rules:write_file.bzl\", \"write_file\")\n" + _SOURCE_BUILD.replace(
+        "srcs = glob(",
+        "srcs = [\":git_identity\"] + glob(",
+    ) + "write_file(name = \"git_identity\", out = \".rules_elixir_git.json\", content = [%r])\n" % json.encode(source)
+
 def _name(value):
     if not value or value[0] not in "abcdefghijklmnopqrstuvwxyz" or any([c not in "abcdefghijklmnopqrstuvwxyz0123456789_" for c in value.elems()]):
         fail("invalid application/repository name: " + value)
@@ -163,7 +171,7 @@ def _impl(ctx):
                 if source["type"] == "hex":
                     hex_archive(name = tag.name + "_" + app, package_name = source["package"], version = source["version"], sha256 = source["sha256"], build_file_content = _SOURCE_BUILD)
                 elif source["type"] == "git":
-                    new_git_repository(name = tag.name + "_" + app, remote = source["url"], commit = source["revision"], recursive_init_submodules = source["submodules"], build_file_content = _SOURCE_BUILD)
+                    new_git_repository(name = tag.name + "_" + app, remote = source["url"], commit = source["revision"], recursive_init_submodules = source["submodules"], build_file_content = _git_source_build(source))
             _graph(name = tag.name, prefix = tag.name, manifest = json.encode(manifest), overrides = graph_overrides, compile_config = str(tag.compile_config) if tag.compile_config else "")
 
         for key in overrides:

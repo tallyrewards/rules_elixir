@@ -1,3 +1,41 @@
+defmodule RulesElixir.MaterializedGit do
+  @moduledoc false
+  @behaviour Mix.SCM
+
+  # Bazel verifies the Git revision during repository fetching, then drops .git.
+  # Keep Mix's declaration/convergence semantics while reading that provenance.
+  defdelegate fetchable?(), to: Mix.SCM.Git
+  defdelegate format(opts), to: Mix.SCM.Git
+  defdelegate format_lock(opts), to: Mix.SCM.Git
+  defdelegate equal?(left, right), to: Mix.SCM.Git
+  defdelegate managers(opts), to: Mix.SCM.Git
+
+  def accepts_options(app, opts), do: Mix.SCM.Git.accepts_options(app, opts)
+
+  def checked_out?(opts) do
+    File.regular?(Path.join(opts[:checkout], ".rules_elixir_git.json"))
+  end
+
+  def lock_status(opts) do
+    identity = JSON.decode!(File.read!(Path.join(opts[:checkout], ".rules_elixir_git.json")))
+
+    case opts[:lock] do
+      {:git, url, revision, options} ->
+        if identity["url"] == url and identity["revision"] == revision and
+             identity["submodules"] == Keyword.get(options, :submodules, false) and
+             Mix.SCM.Git.equal?(opts, Keyword.put(options, :git, url)),
+           do: :ok,
+           else: :mismatch
+
+      _ ->
+        :mismatch
+    end
+  end
+
+  def checkout(_), do: raise("Bazel Git sources must be fetched before analysis")
+  def update(_), do: raise("Bazel Git sources must be fetched before analysis")
+end
+
 defmodule RulesElixir.DependencySync do
   @moduledoc """
   Offline Mix semantic analysis. Fetch dependencies explicitly with Mix first.
@@ -13,6 +51,7 @@ defmodule RulesElixir.DependencySync do
           project: :string,
           output: :string,
           check: :boolean,
+          bazel_sources: :boolean,
           environment: :string,
           input: :keep
         ]
@@ -27,7 +66,8 @@ defmodule RulesElixir.DependencySync do
         analyse(
           project,
           String.to_existing_atom(environment),
-          Keyword.get_values(opts, :input)
+          Keyword.get_values(opts, :input),
+          opts[:bazel_sources]
         )
 
       File.write!(Keyword.fetch!(opts, :output), encode(result) <> "\n")
@@ -47,6 +87,7 @@ defmodule RulesElixir.DependencySync do
           for environment <- @environments, into: %{} do
             fragment = Path.join(work, environment <> ".json")
             inputs = Enum.flat_map(Keyword.get_values(opts, :input), &["--input", &1])
+            inputs = inputs ++ if(opts[:bazel_sources], do: ["--bazel-sources"], else: [])
 
             {log, status} =
               System.cmd(
@@ -92,10 +133,11 @@ defmodule RulesElixir.DependencySync do
     end
   end
 
-  def analyse(project, environment, extra_inputs \\ []) do
+  def analyse(project, environment, extra_inputs \\ [], bazel_sources \\ false) do
     System.put_env("MIX_ENV", to_string(environment))
     Mix.start()
     Mix.Local.append_archives()
+    if bazel_sources, do: Mix.SCM.prepend(RulesElixir.MaterializedGit)
     Mix.env(environment)
     System.put_env("HEX_OFFLINE", "1")
 
@@ -120,6 +162,9 @@ defmodule RulesElixir.DependencySync do
       for dep <- deps do
         if Mix.Dep.diverged?(dep) or not Mix.Dep.available?(dep),
           do: raise("#{dep.app}: #{Mix.Dep.format_status(dep)}; run mix deps.get explicitly")
+
+        if dep.scm == RulesElixir.MaterializedGit and dep.scm.lock_status(dep.opts) != :ok,
+          do: raise("#{dep.app}: Bazel Git source does not match mix.lock and its declaration")
 
         if dep.system_env != [],
           do: raise("#{dep.app}: system_env dependencies need an explicit build capability")

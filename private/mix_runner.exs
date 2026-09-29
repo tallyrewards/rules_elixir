@@ -29,6 +29,27 @@ defmodule RulesElixir.MixRunner do
 
     Mix.Local.append_archives()
 
+    if config["operation"] == "sync" do
+      inputs = Enum.flat_map(config["inputs"], &["--input", &1])
+
+      {_, status} =
+        System.cmd(
+          System.find_executable("elixir"),
+          [
+            Path.expand(config["sync"], execroot),
+            "--project",
+            project,
+            "--output",
+            Path.expand(config["manifest"], execroot),
+            "--check",
+            "--bazel-sources"
+          ] ++ inputs,
+          into: IO.stream()
+        )
+
+      System.halt(status)
+    end
+
     build = Path.join(work, "build")
     System.put_env("MIX_BUILD_PATH", build)
     lib = Path.join(build, "lib")

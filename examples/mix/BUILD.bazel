@@ -1,7 +1,9 @@
 load("@rules_elixir//:ex_unit_test.bzl", "ex_unit_test")
 load("@rules_elixir//:mix_app.bzl", "mix_app")
 load("@rules_elixir//:mix_config.bzl", "mix_config")
+load("@rules_elixir//:mix_lock_test.bzl", "mix_lock_test")
 load("@sample_deps//:defs.bzl", "mix_dependencies")
+load("@sample_deps//:sources.bzl", "mix_dependency_sources")
 load(":generated.bzl", "generated_sources")
 
 mix_config(
@@ -9,6 +11,23 @@ mix_config(
     srcs = glob(["config/**"]),
     config = "config/config.exs",
     visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "sources",
+    srcs = [
+        "mix.exs",
+        "mix.lock",
+    ] + glob(["config/**"]),
+)
+
+mix_lock_test(
+    name = "lock_test",
+    manifest = "rules_elixir.lock.json",
+    sources = mix_dependency_sources() | {
+        ":sources": "",
+        "//dep:sources": "dep",
+    },
 )
 
 mix_app(

@@ -53,7 +53,9 @@ use_repo(packages, "project_deps")
 ```
 
 Repository evaluation reads JSON and fetches pinned sources; it does not run
-Mix. Hex archives are checksum verified; Git sources use full revisions. Give
+Mix. Hex archives are checksum verified; Git sources use full revisions. Git
+repositories generate a provenance file for offline drift checks, so those checks
+do not need a `.git` directory or run Git inside build actions. Give
 independent roots distinct graph names. A graph rejects source identity conflicts,
 unresolved edges and cycles. A compiled closure also rejects two providers for
 the same OTP application rather than silently choosing one.
@@ -111,3 +113,23 @@ Compilers run offline with dependency compilation/checks disabled. Dependencies
 are presented as symlinks to their existing artifacts, not copied for every
 application. Each app exports its own `ebin`, `priv`, `include` and consolidated
 protocols; release outputs contain bytes rather than temporary symlinks.
+
+## CI drift checks
+
+```starlark
+load("@project_deps//:sources.bzl", "mix_dependency_sources")
+load("@rules_elixir//:mix_lock_test.bzl", "mix_lock_test")
+
+mix_lock_test(
+    name = "lock_test",
+    manifest = "rules_elixir.lock.json",
+    sources = mix_dependency_sources() | {":analysis_sources": ""},
+)
+```
+
+`analysis_sources` must supply `mix.exs`, `mix.lock`, configuration and extra
+analysis inputs. Add path dependency sources at their declared paths. For a
+project nested below shared files, set `project_dir` and map source destinations
+accordingly. The test recomputes the manifest in an isolated offline workspace.
+No checked-in file is rewritten. On failure, the regenerated manifest is retained
+in Bazel's undeclared test outputs for comparison.
