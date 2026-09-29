@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — experimental Mix graph
+
+- Upgrade to rules_erlang 3.21.0 and use its public toolchain and application APIs.
+
 ## 1.3.0
 
 Adds a third way to supply Elixir: an already-compiled distribution.

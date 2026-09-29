@@ -18,10 +18,10 @@ bazel_dep(
 )
 bazel_dep(
     name = "rules_erlang",
-    version = "3.18.0",
+    version = "3.21.0",
 )
 
-# rules_erlang 3.18.0 is not on the Bazel Central Registry yet; ownership of the
+# rules_erlang 3.21.0 is not on the Bazel Central Registry yet; ownership of the
 # registry entry is being transferred from rabbitmq. Until that lands the
 # bazel_dep above cannot resolve on its own, and every module in the graph that
 # needs it has to override it.
@@ -32,8 +32,8 @@ bazel_dep(
 # Drop it once rules_erlang is published.
 git_override(
     module_name = "rules_erlang",
+    commit = "13977b3309fd0b0d6795f322cffd86a8c161be64",  # 3.21.0
     remote = "https://github.com/bazelverse/rules_erlang.git",
-    commit = "5531a30ab87ed7e2a63eb1a901c4eeac1bb2bcc6",  # 3.18.0
 )
 
 elixir_config = use_extension(

@@ -1,13 +1,13 @@
 load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@rules_erlang//:erlang_app_info.bzl", "ErlangAppInfo", "flat_deps")
 load("@rules_erlang//:util.bzl", "path_join")
-load("@rules_erlang//private:util.bzl", "erl_libs_contents")
 load(
     "//private:elixir_toolchain.bzl",
     "elixir_dirs",
     "erlang_dirs",
     "maybe_install_erlang",
 )
+load("//private:erl_libs.bzl", "erl_libs_contents")
 
 def _impl(ctx):
     ebin = ctx.actions.declare_directory(ctx.attr.dest)
@@ -16,7 +16,6 @@ def _impl(ctx):
 
     erl_libs_files = erl_libs_contents(
         ctx,
-        target_info = None,
         headers = True,
         dir = erl_libs_dir,
         deps = flat_deps(ctx.attr.deps),
@@ -76,11 +75,8 @@ ${{ABS_ELIXIR_HOME}}/bin/elixirc \\
     )
 
     inputs = depset(
-        # ctx.files.data: Elixir modules routinely read files at COMPILE time --
-        # @moduledoc File.read!("README.md") and @external_resource are both common in
-        # Hex packages (crux and sourceror in the Ash closure alone). Without a way to
-        # declare those, the file exists in the repository but never reaches the sandbox
-        # and compilation fails on a missing file.
+        # Compile-time reads such as @moduledoc File.read!("README.md") and
+        # @external_resource need declared data files in the sandbox.
         direct = ctx.files.srcs + ctx.files.data + erl_libs_files,
         transitive = [
             erlang_runfiles.files,
@@ -98,7 +94,7 @@ ${{ABS_ELIXIR_HOME}}/bin/elixirc \\
     return [
         DefaultInfo(
             files = depset([ebin]),
-        )
+        ),
     ]
 
 elixir_bytecode = rule(

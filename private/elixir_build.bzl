@@ -19,6 +19,7 @@ ElixirInfo = provider(
         "release_dir",
         "elixir_home",
         "version_file",
+        "otpinfo",
     ],
 )
 
@@ -141,6 +142,7 @@ export PATH="{erlang_home}"/bin:${{PATH}}
         ),
         ctx.toolchains["@rules_erlang//tools:toolchain_type"].otpinfo,
         ElixirInfo(
+            otpinfo = ctx.toolchains["@rules_erlang//tools:toolchain_type"].otpinfo,
             release_dir = release_dir,
             elixir_home = None,
             version_file = version_file,
@@ -289,6 +291,7 @@ export PATH="{erlang_home}"/bin:${{PATH}}
         ),
         ctx.toolchains["@rules_erlang//tools:toolchain_type"].otpinfo,
         ElixirInfo(
+            otpinfo = ctx.toolchains["@rules_erlang//tools:toolchain_type"].otpinfo,
             release_dir = release_dir,
             elixir_home = None,
             version_file = version_file,
@@ -341,6 +344,7 @@ export PATH="{erlang_home}"/bin:${{PATH}}
         ),
         ctx.toolchains["@rules_erlang//tools:toolchain_type"].otpinfo,
         ElixirInfo(
+            otpinfo = ctx.toolchains["@rules_erlang//tools:toolchain_type"].otpinfo,
             release_dir = None,
             elixir_home = elixir_home,
             version_file = version_file,

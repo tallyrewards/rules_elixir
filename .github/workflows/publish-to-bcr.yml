@@ -9,7 +9,7 @@
 # a private registry fork this project can no longer write to.
 #
 # Note that rules_elixir cannot actually land in the registry until rules_erlang
-# 3.18.0 does, because the BCR presubmit resolves the full module graph and
+# 3.21.0 does, because the BCR presubmit resolves the full module graph and
 # overrides do not apply to a non-root module.
 name: Publish to BCR
 on:

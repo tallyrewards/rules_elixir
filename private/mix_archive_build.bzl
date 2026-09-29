@@ -38,7 +38,7 @@ load(
 )
 load("@rules_erlang//:util.bzl", "path_join")
 load(
-    "@rules_erlang//private:util.bzl",
+    "//private:erl_libs.bzl",
     "additional_file_dest_relative_path",
     "erl_libs_contents",
 )
@@ -63,7 +63,6 @@ def _impl(ctx):
 
     erl_libs_files = erl_libs_contents(
         ctx,
-        target_info = None,
         headers = True,
         dir = erl_libs_dir,
         deps = flat_deps(ctx.attr.deps),
@@ -111,8 +110,8 @@ ABS_OUT_PATH="$PWD/{out}"
 
 export PATH="$ABS_ELIXIR_HOME"/bin:"{erlang_home}"/bin:${{PATH}}
 
-export LANG="en_US.UTF-8"
-export LC_ALL="en_US.UTF-8"
+export LANG=C LC_ALL=C
+export ERL_FLAGS="${{ERL_FLAGS:-}} +fnu"
 
 MIX_INVOCATION_DIR="{mix_invocation_dir}"
 
