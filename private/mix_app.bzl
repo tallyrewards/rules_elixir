@@ -111,6 +111,7 @@ def _compile(ctx, manager):
         "archives": [f.path for f in ctx.files.archives],
         "dependencies": dependency_description(apps),
         "outputs": {k: v.path for k, v in outputs.items()},
+        "beam_metadata": ctx.file._beam_metadata.path,
     }
     if manager == "rebar3":
         config["rebar3"] = ctx.file._rebar3.path
@@ -122,7 +123,7 @@ def _compile(ctx, manager):
         config["config_environment"] = ctx.attr._mix_env[BuildSettingInfo].value
     config_file = ctx.actions.declare_file(ctx.label.name + ".mix.json")
     ctx.actions.write(config_file, json.encode(config))
-    inputs = depset(ctx.files.srcs + ctx.files.generated_srcs + [ctx.file.project_file] + ctx.files.archives + dependency_inputs(apps) + ([ctx.file._rebar3] if manager == "rebar3" else []), transitive = [config_inputs])
+    inputs = depset(ctx.files.srcs + ctx.files.generated_srcs + [ctx.file.project_file, ctx.file._beam_metadata] + ctx.files.archives + dependency_inputs(apps) + ([ctx.file._rebar3] if manager == "rebar3" else []), transitive = [config_inputs])
     tc = toolchain(ctx)
     ctx.actions.run_shell(
         inputs = depset([config_file, ctx.file._runner], transitive = [inputs, tc.files]),
@@ -168,6 +169,7 @@ _ATTRS = {
     "environment": attr.string(values = ["", "dev", "test", "prod"]),
     "_mix_env": attr.label(default = Label("//:mix_env")),
     "_runner": attr.label(default = Label("//private:mix_runner.exs"), allow_single_file = True),
+    "_beam_metadata": attr.label(default = Label("//private:beam_metadata.ex"), allow_single_file = True),
 }
 
 mix_app = rule(

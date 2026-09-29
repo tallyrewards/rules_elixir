@@ -153,6 +153,14 @@ defmodule RulesElixir.MixRunner do
       source = if not File.dir?(source) and kind in ~w(priv include), do: kind, else: source
       if File.dir?(source), do: copy_contents(source, output)
     end
+
+    Code.require_file(Path.expand(config["beam_metadata"], execroot))
+
+    for kind <- ~w(ebin consolidated) do
+      apply(RulesElixir.BeamMetadata, :normalize!, [
+        Path.expand(config["outputs"][kind], execroot)
+      ])
+    end
   end
 
   defp offline_rebar_config(config) do

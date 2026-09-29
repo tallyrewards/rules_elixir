@@ -61,3 +61,10 @@ config_setting(
     flag_values = {":mix_env": "prod"},
     visibility = ["//visibility:public"],
 )
+
+ex_unit_test(
+    name = "beam_metadata_test",
+    srcs = ["tests/beam_metadata_test.exs"],
+    data = ["//private:beam_metadata.ex"],
+    env = {"ERL_COMPILER_OPTIONS": "deterministic"},
+)
