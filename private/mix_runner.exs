@@ -38,6 +38,59 @@ defmodule RulesElixir.MixRunner do
       System.halt(0)
     end
 
+    if config["operation"] in ["compile", "rebar3"] and config["native"] != %{} do
+      native = config["native"]
+      tool_dir = Path.join(work, "bin")
+      File.mkdir_p!(tool_dir)
+
+      for {name, source} <- native["tools"] do
+        # Execute the original path so tools can locate their adjacent Bazel
+        # runfiles. A symlink through tool_dir changes $0 for shell tools.
+        wrapper = Path.join(tool_dir, name)
+
+        File.write!(
+          wrapper,
+          "#!/bin/sh\nexec " <> shell_quote(Path.expand(source, execroot)) <> " \"$@\"\n"
+        )
+
+        File.chmod!(wrapper, 0o755)
+      end
+
+      for {name, [compiler | flags]} <- native["commands"] do
+        wrapper = Path.join(tool_dir, String.downcase(name))
+        args = [Path.expand(compiler, execroot) | Enum.map(flags, &absolute_flag(&1, execroot))]
+
+        includes =
+          for {flag, paths} <- native["includes"],
+              path <- paths,
+              do: flag <> Path.expand(path, execroot)
+
+        args = args ++ includes ++ Enum.map(native["defines"], &("-D" <> &1))
+
+        File.write!(
+          wrapper,
+          "#!/bin/sh\nexec " <> Enum.map_join(args, " ", &shell_quote/1) <> " \"$@\"\n"
+        )
+
+        File.chmod!(wrapper, 0o755)
+        System.put_env(name, wrapper)
+      end
+
+      for {name, value} <- native["environment"],
+          do: System.put_env(name, absolute_flag(value, execroot))
+
+      System.put_env(
+        "LDFLAGS",
+        Enum.map_join(native["link_flags"], " ", &shell_quote(absolute_flag(&1, execroot))) <>
+          " " <> Enum.map_join(native["libraries"], " ", &shell_quote(Path.expand(&1, execroot)))
+      )
+
+      System.put_env("PATH", tool_dir <> ":" <> System.fetch_env!("PATH"))
+
+      if Map.has_key?(native["tools"], "make"),
+        do: System.put_env("MAKE", Path.join(tool_dir, "make"))
+    end
+
     if config["operation"] == "sync" do
       inputs = Enum.flat_map(config["inputs"], &["--input", &1])
 
@@ -304,6 +357,14 @@ defmodule RulesElixir.MixRunner do
         Path.expand(config["outputs"][kind], execroot)
       ])
     end
+
+    Code.require_file(Path.expand(config["native_validator"], execroot))
+
+    apply(RulesElixir.NativeArtifacts, :validate!, [
+      Path.expand(config["outputs"]["priv"], execroot),
+      config["target_platform"]["cpu"],
+      config["target_platform"]["os"]
+    ])
   end
 
   defp offline_rebar_config(config) do
@@ -320,6 +381,16 @@ defmodule RulesElixir.MixRunner do
       for {:prod, values} <- profiles, do: {:prod, offline_rebar_config(values)}
     end)
   end
+
+  # Make execroot-relative paths absolute where a path begins: at the start of
+  # the flag, after "=", "," or ":", or after a one-letter option such as -I.
+  # A bazel-out path to an external repository contains "external/" too; that
+  # occurrence is part of the same path and must not be rewritten again.
+  defp absolute_flag(flag, execroot) do
+    Regex.replace(~r{(^|[=,:]|^-[A-Za-z])(external/|bazel-out/)}, flag, "\\1#{execroot}/\\2")
+  end
+
+  defp shell_quote(value), do: "'" <> String.replace(value, "'", "'\"'\"'") <> "'"
 
   defp stage(source, target) do
     if File.dir?(source) do

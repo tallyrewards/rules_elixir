@@ -1,0 +1,42 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_elixir//:mix_app.bzl", "mix_app")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+filegroup(
+    name = "sources",
+    srcs = ["mix.exs"] + glob([
+        "lib/**",
+        "src/**",
+    ]),
+    visibility = ["//visibility:public"],
+)
+
+mix_app(
+    name = "app",
+    srcs = glob([
+        "lib/**",
+        "src/**",
+    ]),
+    app_name = "sample_native",
+    archives = [],
+    environment = "prod",
+    is_dependency = True,
+    mix_exs = "mix.exs",
+    native_deps = [":answer"],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "answer",
+    srcs = ["c_support/answer.c"],
+    hdrs = ["c_support/answer.h"],
+    includes = ["c_support"],
+    linkstatic = True,
+)
+
+sh_binary(
+    name = "fixture_codegen",
+    srcs = ["codegen.sh"],
+    data = ["codegen.txt"],
+    visibility = ["//visibility:public"],
+)

@@ -5,6 +5,7 @@ load(
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//:ex_unit_test.bzl", "ex_unit_test")
 load("//:tests/manifest_test.bzl", "manifest_tests", "override_tests")
+load("//private:native.bzl", "native_platform")
 load("//tools:elixir_vars.bzl", "ELIXIR_VARS_ENV_MAP")
 
 string_flag(
@@ -73,3 +74,19 @@ ex_unit_test(
 manifest_tests()
 
 override_tests()
+
+native_platform(
+    name = "native_exec_platform",
+    visibility = ["//visibility:public"],
+)
+
+toolchain_type(
+    name = "mix_payloads_toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
+ex_unit_test(
+    name = "native_artifacts_test",
+    srcs = ["tests/native_artifacts_test.exs"],
+    data = ["//private:native_artifacts.ex"],
+)

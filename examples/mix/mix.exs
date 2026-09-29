@@ -7,6 +7,7 @@ defmodule Sample.MixProject do
       version: "0.1.0",
       aliases: [compile: [&prepare/1, "compile"]],
       deps: [
+        {:sample_native, path: "native"},
         {:sample_dep, path: "dep", runtime: false},
         {:jason, "~> 1.4.4"},
         {:telemetry,

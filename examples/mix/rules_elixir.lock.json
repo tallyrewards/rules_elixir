@@ -2,7 +2,7 @@
   "environments": {
     "dev": {
       "inputs": {
-        "mix.exs": "6d33b2d89f91aedea4dbbad7c2027bc0828dba68c90dd9b8135249b3f2b4cf88",
+        "mix.exs": "d45e9e6f121e9884c0225ee9f3edb1bbfe1138e5121f73dd43539a1a2c7ad590",
         "mix.lock": "9e3a7bf0a5be258ba206bd0352c6e353c6671fa37bba0895f2e957e1103d6eb3"
       },
       "packages": {
@@ -54,6 +54,28 @@
             "path": "dep",
             "type": "path"
           }
+        },
+        "sample_native": {
+          "dependencies": [],
+          "environment": "prod",
+          "manager": "mix",
+          "project": {
+            "compilers": [
+              "sample_native",
+              "erlang",
+              "elixir",
+              "app"
+            ],
+            "consolidate_protocols": false,
+            "elixirc_paths": [
+              "lib"
+            ],
+            "version": "0.1.0"
+          },
+          "source": {
+            "path": "native",
+            "type": "path"
+          }
         }
       },
       "root": {
@@ -80,6 +102,14 @@
             "optional": false,
             "override": false,
             "runtime": false
+          },
+          {
+            "app": "sample_native",
+            "compile": true,
+            "environment": "prod",
+            "optional": false,
+            "override": false,
+            "runtime": true
           }
         ],
         "elixirc_paths": [
@@ -91,7 +121,7 @@
     },
     "prod": {
       "inputs": {
-        "mix.exs": "6d33b2d89f91aedea4dbbad7c2027bc0828dba68c90dd9b8135249b3f2b4cf88",
+        "mix.exs": "d45e9e6f121e9884c0225ee9f3edb1bbfe1138e5121f73dd43539a1a2c7ad590",
         "mix.lock": "9e3a7bf0a5be258ba206bd0352c6e353c6671fa37bba0895f2e957e1103d6eb3"
       },
       "packages": {
@@ -143,6 +173,28 @@
             "path": "dep",
             "type": "path"
           }
+        },
+        "sample_native": {
+          "dependencies": [],
+          "environment": "prod",
+          "manager": "mix",
+          "project": {
+            "compilers": [
+              "sample_native",
+              "erlang",
+              "elixir",
+              "app"
+            ],
+            "consolidate_protocols": false,
+            "elixirc_paths": [
+              "lib"
+            ],
+            "version": "0.1.0"
+          },
+          "source": {
+            "path": "native",
+            "type": "path"
+          }
         }
       },
       "root": {
@@ -169,6 +221,14 @@
             "optional": false,
             "override": false,
             "runtime": false
+          },
+          {
+            "app": "sample_native",
+            "compile": true,
+            "environment": "prod",
+            "optional": false,
+            "override": false,
+            "runtime": true
           }
         ],
         "elixirc_paths": [
@@ -180,7 +240,7 @@
     },
     "test": {
       "inputs": {
-        "mix.exs": "6d33b2d89f91aedea4dbbad7c2027bc0828dba68c90dd9b8135249b3f2b4cf88",
+        "mix.exs": "d45e9e6f121e9884c0225ee9f3edb1bbfe1138e5121f73dd43539a1a2c7ad590",
         "mix.lock": "9e3a7bf0a5be258ba206bd0352c6e353c6671fa37bba0895f2e957e1103d6eb3"
       },
       "packages": {
@@ -230,6 +290,28 @@
           },
           "source": {
             "path": "dep",
+            "type": "path"
+          }
+        },
+        "sample_native": {
+          "dependencies": [],
+          "environment": "prod",
+          "manager": "mix",
+          "project": {
+            "compilers": [
+              "sample_native",
+              "erlang",
+              "elixir",
+              "app"
+            ],
+            "consolidate_protocols": false,
+            "elixirc_paths": [
+              "lib"
+            ],
+            "version": "0.1.0"
+          },
+          "source": {
+            "path": "native",
             "type": "path"
           }
         },
@@ -271,6 +353,14 @@
             "optional": false,
             "override": false,
             "runtime": false
+          },
+          {
+            "app": "sample_native",
+            "compile": true,
+            "environment": "prod",
+            "optional": false,
+            "override": false,
+            "runtime": true
           },
           {
             "app": "telemetry",

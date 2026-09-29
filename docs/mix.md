@@ -126,6 +126,64 @@ are presented as symlinks to their existing artifacts, not copied for every
 application. Each app exports its own `ebin`, `priv`, `include` and consolidated
 protocols; release outputs contain bytes rather than temporary symlinks.
 
+## Native tools
+
+Native source-bearing applications use the selected public `rules_cc` C/C++
+toolchain and its declared inputs, compile flags and environment. `--copt`,
+`--conlyopt`, `--cxxopt` and `--linkopt` are forwarded. The package chooses its
+output kind and link operation. `native_deps` accepts `CcInfo` targets: their
+headers, public defines and include directories reach the compiler, and their
+static libraries and link options are supplied through `LDFLAGS`. The package's
+native builder must use `LDFLAGS` after its object/source arguments. For example:
+
+```starlark
+mix_app(
+    name = "app",
+    app_name = "native_app",
+    mix_exs = "mix.exs",
+    srcs = glob(["lib/**", "src/**"]),
+    native_deps = ["//native_support:library"],
+)
+```
+
+Dynamic and `alwayslink` libraries require explicit linking/packaging adapters;
+the rule does not silently drop their runtime requirements. A separate toolchain declares auxiliary
+executables such as Make:
+
+```starlark
+load("@rules_elixir//:mix_payloads.bzl", "mix_payloads")
+mix_payloads(name = "native_tools", tools = {"@make//:make": "make"})
+toolchain(
+    name = "native_toolchain",
+    toolchain = ":native_tools",
+    toolchain_type = "@rules_elixir//:mix_payloads_toolchain_type",
+)
+# MODULE.bazel: register_toolchains("//:native_toolchain")
+```
+
+Tool labels may name an executable target (with its Bazel runfiles) or a single
+executable file. Executable targets are invoked at their original path so
+runfiles lookup continues to work through the native tools directory.
+
+An empty tools mapping is sufficient for a compiler-only package. Use `native = True` for generated native inputs. Native source
+detection currently covers C/C++/Objective-C inputs. Other native systems and
+precompiled payload selection need explicit adapters. Cross-platform native
+compilation is rejected: a compiler may load its NIF while building, so target
+and execution artifacts cannot safely be conflated.
+
+After compilation, native files in `priv` are checked against the target CPU and
+file format. The checks support 64-bit ELF and Mach-O, including universal Mach-O
+files with a matching slice. Unknown shared-library formats fail explicitly.
+These header checks do not prove runtime ABI or shared-library compatibility;
+test actual NIF loading on each supported platform.
+
+Hermeticity is a property of the selected toolchain, too. The existing external
+OTP/Elixir toolchains and auto-configured system C toolchain depend on host
+installations. The shell/bootstrap still uses system utilities. This experimental
+implementation does **not** establish remote-execution hermeticity merely by
+setting `block-network` on compile and release actions. See the
+[design notes](architecture.md) before production adoption.
+
 ## CI drift checks
 
 ```starlark

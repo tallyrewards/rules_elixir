@@ -13,6 +13,7 @@
 - Check manifest drift offline, including verified Git provenance without checkout metadata.
 - Compile each dependency against only the root configuration keys it reads.
 - Reject an override target that provides a different application.
+- Declare native compiler inputs and auxiliary tools, preserve runfiles and reject unsupported platforms.
 
 ## 1.3.0
 
