@@ -1,6 +1,7 @@
 load("@rules_elixir//:ex_unit_test.bzl", "ex_unit_test")
 load("@rules_elixir//:mix_app.bzl", "mix_app")
 load("@rules_elixir//:mix_config.bzl", "mix_config")
+load("@sample_deps//:defs.bzl", "mix_dependencies")
 load(":generated.bzl", "generated_sources")
 
 mix_config(
@@ -20,7 +21,7 @@ mix_app(
     app_name = "sample",
     generated_srcs = {":generated": "generated"},
     mix_exs = "mix.exs",
-    deps = ["//dep:app"],
+    deps = mix_dependencies(),
 )
 
 generated_sources(name = "generated")

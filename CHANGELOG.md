@@ -9,6 +9,7 @@
 - Compile Mix applications with declared configuration, resources and prebuilt OTP dependencies.
 - Compile Rebar applications offline against the same OTP providers.
 - Normalize temporary source paths in BEAM debug and documentation metadata.
+- Materialize checked-in dependency graphs and reject ambiguous sources, missing edges and cycles.
 
 ## 1.3.0
 

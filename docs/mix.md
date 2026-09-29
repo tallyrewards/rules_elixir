@@ -38,9 +38,41 @@ tools are declared. Root and dependency compile aliases run inside their compile
 action and are suppressed in precompiled test/release consumers. Represent unsupported native builders with explicit Bazel
 targets via overrides rather than allowing action-time dependency fetching.
 
+## Materialize the graph
+
+In addition to the normal Elixir/Erlang toolchain setup:
+
+```starlark
+packages = use_extension("@rules_elixir//bzlmod:mix_deps.bzl", "mix_deps")
+packages.from_file(
+    name = "project_deps",
+    manifest = "//:rules_elixir.lock.json",
+    compile_config = "//:compile_config",
+)
+use_repo(packages, "project_deps")
+```
+
+Repository evaluation reads JSON and fetches pinned sources; it does not run
+Mix. Hex archives are checksum verified; Git sources use full revisions. Give
+independent roots distinct graph names. A graph rejects source identity conflicts,
+unresolved edges and cycles. A compiled closure also rejects two providers for
+the same OTP application rather than silently choosing one.
+
+Path packages require an explicit target:
+
+```starlark
+packages.override(graph = "project_deps", app = "shared", target = "//shared:app")
+```
+
+Overrides are checked against resolved package names. They are explicit adapter
+boundaries; the override author must preserve the resolved application identity
+and behavior. Inactive packages may still be materialized for drift checking;
+the generated `mix_dependencies()` selects the actual root graph.
+
 ## Compile an application
 
 ```starlark
+load("@project_deps//:defs.bzl", "mix_dependencies")
 load("@rules_elixir//:mix_app.bzl", "mix_app")
 load("@rules_elixir//:mix_config.bzl", "mix_config")
 
@@ -55,7 +87,7 @@ mix_app(
     app_name = "my_app",
     mix_exs = "mix.exs",
     srcs = ["mix.lock"] + glob(["lib/**", "config/**", "priv/**"]),
-    deps = ["//dependency:app"],
+    deps = mix_dependencies(),
 )
 ```
 

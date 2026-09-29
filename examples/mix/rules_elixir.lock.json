@@ -1,0 +1,294 @@
+{
+  "environments": {
+    "dev": {
+      "inputs": {
+        "mix.exs": "6d33b2d89f91aedea4dbbad7c2027bc0828dba68c90dd9b8135249b3f2b4cf88",
+        "mix.lock": "9e3a7bf0a5be258ba206bd0352c6e353c6671fa37bba0895f2e957e1103d6eb3"
+      },
+      "packages": {
+        "jason": {
+          "dependencies": [],
+          "environment": "prod",
+          "manager": "mix",
+          "project": {
+            "compilers": [
+              "erlang",
+              "elixir",
+              "app"
+            ],
+            "consolidate_protocols": false,
+            "elixirc_paths": [
+              "lib"
+            ],
+            "version": "1.4.5"
+          },
+          "source": {
+            "build_tools": [
+              "mix"
+            ],
+            "inner_sha256": "2e3a008590b0b8d7388c20293e9dcc9cf3e5d642fd2a114e4cbbb52e595d940a",
+            "package": "jason",
+            "repository": "hexpm",
+            "sha256": "b0c823996102bcd0239b3c2444eb00409b72f6a140c1950bc8b457d836b30684",
+            "type": "hex",
+            "version": "1.4.5"
+          }
+        },
+        "sample_dep": {
+          "dependencies": [],
+          "environment": "prod",
+          "manager": "mix",
+          "project": {
+            "compilers": [
+              "erlang",
+              "elixir",
+              "app"
+            ],
+            "consolidate_protocols": false,
+            "elixirc_paths": [
+              "lib"
+            ],
+            "version": "0.1.0"
+          },
+          "source": {
+            "path": "dep",
+            "type": "path"
+          }
+        }
+      },
+      "root": {
+        "app": "sample",
+        "compilers": [
+          "erlang",
+          "elixir",
+          "app"
+        ],
+        "consolidate_protocols": true,
+        "dependencies": [
+          {
+            "app": "jason",
+            "compile": true,
+            "environment": "prod",
+            "optional": false,
+            "override": false,
+            "runtime": true
+          },
+          {
+            "app": "sample_dep",
+            "compile": true,
+            "environment": "prod",
+            "optional": false,
+            "override": false,
+            "runtime": false
+          }
+        ],
+        "elixirc_paths": [
+          "lib",
+          "generated"
+        ],
+        "version": "0.1.0"
+      }
+    },
+    "prod": {
+      "inputs": {
+        "mix.exs": "6d33b2d89f91aedea4dbbad7c2027bc0828dba68c90dd9b8135249b3f2b4cf88",
+        "mix.lock": "9e3a7bf0a5be258ba206bd0352c6e353c6671fa37bba0895f2e957e1103d6eb3"
+      },
+      "packages": {
+        "jason": {
+          "dependencies": [],
+          "environment": "prod",
+          "manager": "mix",
+          "project": {
+            "compilers": [
+              "erlang",
+              "elixir",
+              "app"
+            ],
+            "consolidate_protocols": false,
+            "elixirc_paths": [
+              "lib"
+            ],
+            "version": "1.4.5"
+          },
+          "source": {
+            "build_tools": [
+              "mix"
+            ],
+            "inner_sha256": "2e3a008590b0b8d7388c20293e9dcc9cf3e5d642fd2a114e4cbbb52e595d940a",
+            "package": "jason",
+            "repository": "hexpm",
+            "sha256": "b0c823996102bcd0239b3c2444eb00409b72f6a140c1950bc8b457d836b30684",
+            "type": "hex",
+            "version": "1.4.5"
+          }
+        },
+        "sample_dep": {
+          "dependencies": [],
+          "environment": "prod",
+          "manager": "mix",
+          "project": {
+            "compilers": [
+              "erlang",
+              "elixir",
+              "app"
+            ],
+            "consolidate_protocols": false,
+            "elixirc_paths": [
+              "lib"
+            ],
+            "version": "0.1.0"
+          },
+          "source": {
+            "path": "dep",
+            "type": "path"
+          }
+        }
+      },
+      "root": {
+        "app": "sample",
+        "compilers": [
+          "erlang",
+          "elixir",
+          "app"
+        ],
+        "consolidate_protocols": true,
+        "dependencies": [
+          {
+            "app": "jason",
+            "compile": true,
+            "environment": "prod",
+            "optional": false,
+            "override": false,
+            "runtime": true
+          },
+          {
+            "app": "sample_dep",
+            "compile": true,
+            "environment": "prod",
+            "optional": false,
+            "override": false,
+            "runtime": false
+          }
+        ],
+        "elixirc_paths": [
+          "lib",
+          "generated"
+        ],
+        "version": "0.1.0"
+      }
+    },
+    "test": {
+      "inputs": {
+        "mix.exs": "6d33b2d89f91aedea4dbbad7c2027bc0828dba68c90dd9b8135249b3f2b4cf88",
+        "mix.lock": "9e3a7bf0a5be258ba206bd0352c6e353c6671fa37bba0895f2e957e1103d6eb3"
+      },
+      "packages": {
+        "jason": {
+          "dependencies": [],
+          "environment": "prod",
+          "manager": "mix",
+          "project": {
+            "compilers": [
+              "erlang",
+              "elixir",
+              "app"
+            ],
+            "consolidate_protocols": false,
+            "elixirc_paths": [
+              "lib"
+            ],
+            "version": "1.4.5"
+          },
+          "source": {
+            "build_tools": [
+              "mix"
+            ],
+            "inner_sha256": "2e3a008590b0b8d7388c20293e9dcc9cf3e5d642fd2a114e4cbbb52e595d940a",
+            "package": "jason",
+            "repository": "hexpm",
+            "sha256": "b0c823996102bcd0239b3c2444eb00409b72f6a140c1950bc8b457d836b30684",
+            "type": "hex",
+            "version": "1.4.5"
+          }
+        },
+        "sample_dep": {
+          "dependencies": [],
+          "environment": "prod",
+          "manager": "mix",
+          "project": {
+            "compilers": [
+              "erlang",
+              "elixir",
+              "app"
+            ],
+            "consolidate_protocols": false,
+            "elixirc_paths": [
+              "lib"
+            ],
+            "version": "0.1.0"
+          },
+          "source": {
+            "path": "dep",
+            "type": "path"
+          }
+        },
+        "telemetry": {
+          "dependencies": [],
+          "environment": "prod",
+          "manager": "rebar3",
+          "project": {},
+          "source": {
+            "revision": "7baf8085e406d5ae9e43b284d7c866742ae04b28",
+            "sparse": null,
+            "submodules": false,
+            "type": "git",
+            "url": "https://github.com/beam-telemetry/telemetry.git"
+          }
+        }
+      },
+      "root": {
+        "app": "sample",
+        "compilers": [
+          "erlang",
+          "elixir",
+          "app"
+        ],
+        "consolidate_protocols": true,
+        "dependencies": [
+          {
+            "app": "jason",
+            "compile": true,
+            "environment": "prod",
+            "optional": false,
+            "override": false,
+            "runtime": true
+          },
+          {
+            "app": "sample_dep",
+            "compile": true,
+            "environment": "prod",
+            "optional": false,
+            "override": false,
+            "runtime": false
+          },
+          {
+            "app": "telemetry",
+            "compile": true,
+            "environment": "prod",
+            "optional": false,
+            "override": false,
+            "runtime": true
+          }
+        ],
+        "elixirc_paths": [
+          "lib",
+          "generated",
+          "support"
+        ],
+        "version": "0.1.0"
+      }
+    }
+  },
+  "schema_version": 1
+}
