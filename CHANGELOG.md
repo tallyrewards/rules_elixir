@@ -17,6 +17,8 @@
 - Run ExUnit against the precompiled test graph and retain requested test outputs.
 - Keep test files out of application compilation; consumers stage only the project definition and their own files.
 - Set Mix partition identity before configuration and preserve external partitions when unsharded.
+- Assemble named releases from shared production compilation.
+- Compare release application metadata, actual BEAM inventories and runtime configuration.
 
 ## 1.3.0
 

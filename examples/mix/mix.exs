@@ -17,7 +17,11 @@ defmodule Sample.MixProject do
          only: :test}
       ],
       elixirc_paths:
-        if(Mix.env() == :test, do: ["lib", "generated", "support"], else: ["lib", "generated"])
+        if(Mix.env() == :test, do: ["lib", "generated", "support"], else: ["lib", "generated"]),
+      releases: [
+        sample: [],
+        load_only: [applications: [sample: :load], runtime_config_path: false]
+      ]
     ]
   end
 

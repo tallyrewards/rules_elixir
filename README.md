@@ -1,11 +1,11 @@
 # rules_elixir
 
-Bazel rules for building Elixir applications. Compile an app, run its ExUnit
-suites, build a Mix archive, and evaluate code with `iex`.
+Bazel rules for Elixir applications, ExUnit tests and named Mix releases.
+Dependencies compile independently and are reused by tests and release assembly.
+Direct Elixir compilation, Mix archives and `iex` evaluation remain available.
 
-Built on [rules_erlang](https://github.com/bazelverse/rules_erlang), and requires
-it. Elixir applications are OTP applications, so the Erlang toolchain, the app
-metadata and the `ERL_LIBS` staging all come from there.
+Built on [rules_erlang](https://github.com/bazelverse/rules_erlang). Elixir and
+Erlang applications share its OTP toolchain and application provider.
 
 ## Supported versions
 
@@ -34,8 +34,11 @@ This repository continues rabbitmq's `rules_elixir`, which is unmaintained.
 macro, provider or attribute changed; every commit between the two tags is one
 documented fix or addition. See [CHANGELOG.md](./CHANGELOG.md).
 
-The development distribution rules accept declared files. Direct callers should
-read the [migration guide](docs/distributions.md); extension tags are unchanged.
+The unreleased Mix application graph is experimental; read its
+[architecture and limits](docs/architecture.md) before adopting it. It also
+changes the low-level distribution rules to take declared files instead of
+URLs; see the [migration guide](docs/distributions.md). Module-extension
+download tags keep their interface.
 
 ## Installation
 
@@ -110,10 +113,23 @@ build --repo_env=RULES_ERLANG_SKIP_SYSTEM=1
 
 ## Rules
 
-See the [experimental Mix guide](docs/mix.md) for the APIs available on this branch.
+The experimental Mix application graph is described in [docs/mix.md](docs/mix.md).
+It adds checked-in dependency analysis, independent Mix/Rebar application
+compilation, precompiled test consumers and named release assembly. Start with
+[examples/mix](examples/mix). The design and current limitations are described
+in [docs/architecture.md](docs/architecture.md).
+
+See [remote validation](docs/remote.md) for checking actions on isolated remote
+workers and cache reuse across output bases.
 
 | Rule | What it does |
 | --- | --- |
+| `mix_app` | Compile one Mix project against already-built dependencies |
+| `elixir_test` | Run Mix tests using the shared test application graph |
+| `elixir_release` | Assemble a named release defined in `mix.exs` |
+| `mix_config` | Declare root configuration used while compiling dependencies |
+| `mix_lock_test` | Check the dependency manifest against Mix analysis |
+| `mix_payloads` | Declare auxiliary native build tools |
 | `elixir_app` | Compile an Elixir application directly, without Mix |
 | `elixir_external` | Wrap an Elixir installation outside the build |
 | `ex_unit_test` | Run an ExUnit suite as a Bazel test |
@@ -180,8 +196,10 @@ Hex has no dependencies of its own, so it bootstraps through
 `mix_archive_build` with an empty dependency graph. That is why this can live
 here rather than in every consuming module.
 
-Fetching Hex packages is separate from installing Hex itself. For individual
-Erlang packages, see `rules_erlang`'s `erlang_package` extension.
+Fetching Hex packages is separate from installing Hex itself. Mix projects use
+[the dependency manifest and `mix_deps` extension](docs/mix.md) to preserve their
+resolved dependency graph. For individual Erlang packages, see `rules_erlang`'s
+`erlang_package` extension.
 
 ## Examples
 

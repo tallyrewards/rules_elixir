@@ -90,3 +90,9 @@ ex_unit_test(
     srcs = ["tests/native_artifacts_test.exs"],
     data = ["//private:native_artifacts.ex"],
 )
+
+ex_unit_test(
+    name = "compare_releases_test",
+    srcs = ["tests/compare_releases_test.exs"],
+    data = ["//tools:compare_releases.exs"],
+)
