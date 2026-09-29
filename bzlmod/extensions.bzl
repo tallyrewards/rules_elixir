@@ -164,12 +164,20 @@ def _hex(ctx):
     version = DEFAULT_HEX_VERSION
     sha256 = DEFAULT_HEX_SHA256
 
-    # Last tag wins, and the root module's tags are evaluated last, so a consumer can pin a
-    # version without every dependency in the graph having to agree on one.
-    for mod in ctx.modules:
-        for hex in mod.tags.from_github_release:
-            version = hex.version
-            sha256 = hex.sha256
+    # The root module's pin wins. Without one, dependencies may pin Hex only if
+    # they agree, so no module in the graph can silently replace another's pin.
+    root = [tag for mod in ctx.modules if mod.is_root for tag in mod.tags.from_github_release]
+    others = [tag for mod in ctx.modules if not mod.is_root for tag in mod.tags.from_github_release]
+    if len(root) > 1:
+        fail("the root module pins Hex more than once")
+    if not root and len({(tag.version, tag.sha256.lower()): True for tag in others}) > 1:
+        fail("modules pin different Hex versions; pin one in the root module")
+    pins = root or others
+    if pins:
+        version = pins[0].version
+        sha256 = pins[0].sha256.lower()
+        if len(sha256) != 64 or any([c not in "0123456789abcdef" for c in sha256.elems()]):
+            fail("hex.from_github_release requires the archive's 64-character sha256")
 
     http_archive(
         name = "hex",

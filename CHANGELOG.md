@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `hex.from_github_release` now honours the root module's pin. The last tag in
+  the module graph used to win, so any dependency could override the root's
+  Hex version and checksum. Without a root pin, dependency pins must agree.
+  An empty or malformed `sha256` is rejected.
+
 ## 1.3.0
 
 Adds a third way to supply Elixir: an already-compiled distribution.

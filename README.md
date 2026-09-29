@@ -172,6 +172,9 @@ hex.from_github_release(
 )
 ```
 
+The root module's pin takes precedence over any dependency's. Without one,
+pins from dependencies must agree.
+
 Hex has no dependencies of its own, so it bootstraps through
 `mix_archive_build` with an empty dependency graph. That is why this can live
 here rather than in every consuming module.
