@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Elixir installation names must be unique across the module graph. A later
+  declaration of the same name used to replace the first, including its URL
+  and checksum.
+- With `RULES_ELIXIR_SKIP_SYSTEM=1`, `@elixir_config//external` is the root
+  module's first installation rather than whichever the graph listed first.
+- The README's pinned-Elixir recipe now registers the toolchain it declares and
+  selects a platform it is compatible with.
+
 ## 1.3.0
 
 Adds a third way to supply Elixir: an already-compiled distribution.
