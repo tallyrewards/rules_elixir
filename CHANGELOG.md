@@ -6,6 +6,7 @@
 - Fetch Elixir distributions during repository setup; direct rules now use srcs and root.
 - Include Erlang sources, headers and resources in the Hex bootstrap archive.
 - Export versioned Mix dependency manifests using offline dev, test and prod analysis.
+- Compile Mix applications with declared configuration, resources and prebuilt OTP dependencies.
 
 ## 1.3.0
 

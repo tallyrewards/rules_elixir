@@ -1,0 +1,22 @@
+load("@rules_elixir//:mix_app.bzl", "mix_app")
+
+filegroup(
+    name = "sources",
+    srcs = ["mix.exs"] + glob(["lib/**"]),
+    visibility = ["//visibility:public"],
+)
+
+[mix_app(
+    name = name,
+    srcs = glob(["lib/**"]),
+    app_name = "sample_dep",
+    archives = [],
+    compile_config = "//:compile_config",
+    environment = "prod",
+    is_dependency = True,
+    mix_exs = "mix.exs",
+    visibility = ["//visibility:public"],
+) for name in [
+    "app",
+    "app_repeat",
+]]

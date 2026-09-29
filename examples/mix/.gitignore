@@ -1,0 +1,5 @@
+/deps/
+/_build/
+
+/bazel-*
+/user.bazelrc

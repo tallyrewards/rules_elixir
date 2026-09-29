@@ -33,4 +33,49 @@ there is no Starlark version resolver or manual edge-removal list.
 
 Umbrella roots, custom dependency `compile`/`system_env` options,
 non-OTP dependencies, custom Hex repositories and sparse/subdirectory Git sources currently
-fail explicitly.
+fail explicitly. Custom Mix *compilers* are supported when their inputs and
+tools are declared. Root and dependency compile aliases run inside their compile
+action and are suppressed in precompiled test/release consumers. Represent unsupported native builders with explicit Bazel
+targets via overrides rather than allowing action-time dependency fetching.
+
+## Compile an application
+
+```starlark
+load("@rules_elixir//:mix_app.bzl", "mix_app")
+load("@rules_elixir//:mix_config.bzl", "mix_config")
+
+mix_config(
+    name = "compile_config",
+    config = "config/config.exs",
+    srcs = glob(["config/**"]),
+    visibility = ["//visibility:public"],
+)
+mix_app(
+    name = "app",
+    app_name = "my_app",
+    mix_exs = "mix.exs",
+    srcs = ["mix.lock"] + glob(["lib/**", "config/**", "priv/**"]),
+    deps = ["//dependency:app"],
+)
+```
+
+Declare every compile-time resource. Files from the project's repository retain
+their common source layout, including parent files such as `../VERSION`.
+`generated_srcs = {":generator": "lib/generated"}` stages a single generated
+file or TreeArtifact at a project-relative destination. Cross-repository inputs
+must use that mapping rather than relying on an accidental common prefix.
+
+`mix_config` is necessary when dependencies read root application configuration,
+including `Application.compile_env/3`. Generated dependencies load it using the
+root environment, then compile using their own resolved environment (normally
+`prod`). Configuration files participate in those actions' cache keys. Local
+path adapters should set `compile_config`, `is_dependency = True` and the
+appropriate `environment` themselves.
+
+The canonical flag is `--@rules_elixir//:mix_env=dev|test|prod`. Test/release
+transitions change only this setting on the application edge. It is target
+scoped so execution tools do not inherit application environment changes.
+Compilers run offline with dependency compilation/checks disabled. Dependencies
+are presented as symlinks to their existing artifacts, not copied for every
+application. Each app exports its own `ebin`, `priv`, `include` and consolidated
+protocols; release outputs contain bytes rather than temporary symlinks.
