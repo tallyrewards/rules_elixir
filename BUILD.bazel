@@ -2,6 +2,8 @@ load(
     "@bazel_skylib//rules:common_settings.bzl",
     "string_flag",
 )
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//tools:elixir_vars.bzl", "ELIXIR_VARS_ENV_MAP")
 
 string_flag(
     name = "elixir_home",
@@ -12,4 +14,13 @@ string_flag(
 toolchain_type(
     name = "toolchain_type",
     visibility = ["//visibility:public"],
+)
+
+sh_test(
+    name = "hex_archive_test",
+    srcs = ["tests/hex_archive_test.sh"],
+    args = ["$(location @hex//:archive)"],
+    data = ["@hex//:archive"],
+    env = ELIXIR_VARS_ENV_MAP,
+    toolchains = ["//tools:elixir_vars"],
 )

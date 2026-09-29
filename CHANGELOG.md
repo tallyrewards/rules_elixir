@@ -4,6 +4,7 @@
 
 - Upgrade to rules_erlang 3.21.0 and use its public toolchain and application APIs.
 - Fetch Elixir distributions during repository setup; direct rules now use srcs and root.
+- Include Erlang sources, headers and resources in the Hex bootstrap archive.
 
 ## 1.3.0
 

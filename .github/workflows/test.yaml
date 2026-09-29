@@ -36,8 +36,8 @@ jobs:
           echo "build --color=yes" >> user.bazelrc
       - name: BUILD
         run: |
-          bazelisk build //... \
-            --verbose_failures
+          bazelisk test //... \
+            --verbose_failures --test_output=errors
   test:
     runs-on: ubuntu-latest
     strategy:
