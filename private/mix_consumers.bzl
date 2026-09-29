@@ -2,7 +2,8 @@
 
 load("@bazel_skylib//lib:shell.bzl", "shell")
 load(":mix_app.bzl", "MixProjectInfo", "closure", "dependency_description", "dependency_inputs", "invocation", "toolchain")
-load(":mix_config.bzl", "test_transition")
+load(":mix_config.bzl", "prod_transition", "test_transition")
+load(":native.bzl", "NATIVE_CONSTRAINTS", "require_matching_platforms")
 
 def _app(ctx):
     # Attribute transitions produce a list even for a single label.
@@ -24,6 +25,24 @@ def _config(ctx, operation):
         if dep["app"] == config["app"]:
             dep["files"]["consolidated"] = [project.consolidated.path]
     return (config, depset(ctx.files.srcs + dependency_inputs(apps) + [project.consolidated], transitive = [project.project_files]))
+
+def _release_impl(ctx):
+    require_matching_platforms(ctx)
+    (config, inputs) = _config(ctx, "release")
+    output = ctx.actions.declare_directory(ctx.label.name)
+    config.update({"release": ctx.attr.release, "output": output.path})
+    config_file = ctx.actions.declare_file(ctx.label.name + ".mix.json")
+    ctx.actions.write(config_file, json.encode(config))
+    tc = toolchain(ctx)
+    ctx.actions.run_shell(
+        inputs = depset([config_file, ctx.file._runner], transitive = [inputs, tc.files]),
+        outputs = [output],
+        command = invocation(ctx, config_file, tc),
+        mnemonic = "MixRelease",
+        progress_message = "Assembling Mix release " + ctx.attr.release,
+        execution_requirements = {"block-network": "1"},
+    )
+    return [DefaultInfo(files = depset([output]))]
 
 def _test_impl(ctx):
     (config, inputs) = _config(ctx, "test")
@@ -61,6 +80,19 @@ _COMMON = {
     "_runner": attr.label(default = Label("//private:mix_runner.exs"), allow_single_file = True),
     "_allowlist_function_transition": attr.label(default = "@bazel_tools//tools/allowlists/function_transition_allowlist"),
 }
+
+elixir_release = rule(
+    implementation = _release_impl,
+    attrs = dict(
+        _COMMON,
+        app = attr.label(mandatory = True, providers = [MixProjectInfo], cfg = prod_transition),
+        release = attr.string(mandatory = True),
+        srcs = attr.label_list(allow_files = True, doc = "Files the release task reads besides the project definition, such as rel/ templates and overlays."),
+        _native_constraints = attr.label_list(default = NATIVE_CONSTRAINTS),
+        _native_exec_platform = attr.label(default = Label("//:native_exec_platform"), cfg = "exec"),
+    ),
+    toolchains = ["//:toolchain_type"],
+)
 
 elixir_test = rule(
     implementation = _test_impl,

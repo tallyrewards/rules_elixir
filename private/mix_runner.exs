@@ -248,6 +248,16 @@ defmodule RulesElixir.MixRunner do
                   compile.()
                 end
 
+              "release" ->
+                Mix.Tasks.Release.run([
+                  config["release"],
+                  "--no-compile",
+                  "--no-deps-check",
+                  "--overwrite",
+                  "--path",
+                  Path.expand(config["output"], execroot)
+                ])
+
               "test" ->
                 total = String.to_integer(System.get_env("TEST_TOTAL_SHARDS", "1"))
                 if path = System.get_env("TEST_SHARD_STATUS_FILE"), do: File.write!(path, "")

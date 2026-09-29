@@ -2,7 +2,7 @@
   "environments": {
     "dev": {
       "inputs": {
-        "mix.exs": "d45e9e6f121e9884c0225ee9f3edb1bbfe1138e5121f73dd43539a1a2c7ad590",
+        "mix.exs": "51dc6a5da44c32720868dda64095206223d2e89fb39a4d75ac63a1f69c227820",
         "mix.lock": "9e3a7bf0a5be258ba206bd0352c6e353c6671fa37bba0895f2e957e1103d6eb3"
       },
       "packages": {
@@ -121,7 +121,7 @@
     },
     "prod": {
       "inputs": {
-        "mix.exs": "d45e9e6f121e9884c0225ee9f3edb1bbfe1138e5121f73dd43539a1a2c7ad590",
+        "mix.exs": "51dc6a5da44c32720868dda64095206223d2e89fb39a4d75ac63a1f69c227820",
         "mix.lock": "9e3a7bf0a5be258ba206bd0352c6e353c6671fa37bba0895f2e957e1103d6eb3"
       },
       "packages": {
@@ -240,7 +240,7 @@
     },
     "test": {
       "inputs": {
-        "mix.exs": "d45e9e6f121e9884c0225ee9f3edb1bbfe1138e5121f73dd43539a1a2c7ad590",
+        "mix.exs": "51dc6a5da44c32720868dda64095206223d2e89fb39a4d75ac63a1f69c227820",
         "mix.lock": "9e3a7bf0a5be258ba206bd0352c6e353c6671fa37bba0895f2e957e1103d6eb3"
       },
       "packages": {

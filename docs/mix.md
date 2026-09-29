@@ -188,6 +188,7 @@ setting `block-network` on compile and release actions. See the
 
 ```starlark
 load("@rules_elixir//:elixir_test.bzl", "elixir_test")
+load("@rules_elixir//:elixir_release.bzl", "elixir_release")
 
 mix_app(
     name = "app",
@@ -205,6 +206,8 @@ elixir_test(
     shard_count = 4,
     test_outputs = ["tmp/junit-reports"],
 )
+elixir_release(name = "server", srcs = glob(["rel/**"]), app = ":app", release = "server")
+elixir_release(name = "client", srcs = glob(["rel/**"]), app = ":app", release = "client")
 ```
 
 Only files the compiler reads belong in the application's `srcs`, such as
@@ -225,6 +228,20 @@ project-relative paths under Bazel's undeclared test outputs, including failures
 Prepare databases and other services in the consuming project before running
 the test. The rules do not execute test aliases that provision application
 infrastructure.
+
+Named releases share the `prod` graph and invoke Mix's release task with
+`--no-compile --no-deps-check`. Application modes, runtime configuration and
+overlays stay in `mix.exs`. Like a test, a release stages the project
+definition and the compiled graph; declare `rel/` templates, overlays and other
+files the release task reads in its `srcs`.
+No database, OCI or deployment policy belongs in the generic release rule.
+
+Bazel normalizes permissions on files in output directories, including adding
+execute bits to ordinary data files. Release resource checks should compare bytes
+and paths, and verify that required executables remain executable. The final
+packaging layer must assign its intended file modes rather than inherit them
+from a Bazel output tree. This follows Bazel's
+[output metadata handling](https://github.com/bazelbuild/bazel/blob/9.2.0/src/main/java/com/google/devtools/build/lib/skyframe/ActionOutputMetadataStore.java).
 
 ## CI drift checks
 
