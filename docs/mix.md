@@ -66,9 +66,9 @@ Path packages require an explicit target:
 packages.override(graph = "project_deps", app = "shared", target = "//shared:app")
 ```
 
-Overrides are checked against resolved package names. They are explicit adapter
-boundaries; the override author must preserve the resolved application identity
-and behavior. Inactive packages may still be materialized for drift checking;
+Overrides are checked against resolved package names, and an override target
+must provide the application it replaces. They are explicit adapter boundaries;
+the override author must preserve the resolved application's behavior. Inactive packages may still be materialized for drift checking;
 the generated `mix_dependencies()` selects the actual root graph.
 
 ## Compile an application

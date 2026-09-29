@@ -1,7 +1,9 @@
 """Graph admission tests: ambiguous or incomplete graphs must never build."""
 
 load("@bazel_skylib//lib:unittest.bzl", "analysistest", "asserts")
+load("@rules_erlang//:erlang_app_info.bzl", "ErlangAppInfo")
 load("//bzlmod:mix_deps.bzl", "validate_manifest")
+load("//private:override_app.bzl", "override_app")
 
 def _validate_impl(ctx):
     validate_manifest(json.decode(ctx.attr.manifest))
@@ -58,3 +60,14 @@ def manifest_tests():
     for name, manifest, message in cases:
         _validate(name = name + "_graph", manifest = json.encode(manifest), tags = ["manual"])
         _reject_test(name = name + "_test", target_under_test = ":" + name + "_graph", message = message)
+
+def _app_impl(ctx):
+    return [ErlangAppInfo(app_name = ctx.attr.app_name, extra_apps = [], include = [], beam = [], priv = [], license_files = [], srcs = [], deps = [])]
+
+_app = rule(implementation = _app_impl, attrs = {"app_name": attr.string()})
+
+def override_tests():
+    """An override target must provide the application it replaces."""
+    _app(name = "other_app", app_name = "other", tags = ["manual"])
+    override_app(name = "mismatched_override", app_name = "expected", actual = ":other_app", tags = ["manual"])
+    _reject_test(name = "override_identity_test", target_under_test = ":mismatched_override", message = "provides application other")

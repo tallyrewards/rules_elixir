@@ -19,7 +19,10 @@ def closure(deps):
     for dep in deps:
         for candidate in [dep] + dep[ErlangAppInfo].deps:
             name = candidate[ErlangAppInfo].app_name
-            if name in apps and apps[name] != candidate:
+
+            # Compare compiled outputs, not targets: an override and the target it
+            # forwards are the same application instance.
+            if name in apps and apps[name][ErlangAppInfo].beam != candidate[ErlangAppInfo].beam:
                 fail("incompatible instances of OTP application %s: %s and %s" % (name, apps[name].label, candidate.label))
             apps[name] = candidate
     return [apps[k] for k in sorted(apps)]

@@ -95,12 +95,13 @@ def _graph_impl(ctx):
     build = [
         'load("@rules_elixir//:mix_app.bzl", "mix_app")',
         'load("@rules_elixir//private:mix_app.bzl", "rebar_app")',
+        'load("@rules_elixir//private:override_app.bzl", "override_app")',
         'load("@rules_elixir//private:unsupported_app.bzl", "unsupported_app")',
         'package(default_visibility = ["//visibility:public"])',
     ]
     for app in sorted(packages):
         if app in ctx.attr.overrides:
-            build.append("alias(name = %r, actual = %r)" % (app, ctx.attr.overrides[app]))
+            build.append("override_app(name = %r, app_name = %r, actual = %r)" % (app, app, ctx.attr.overrides[app]))
             continue
         package = packages[app]
         if package["source"]["type"] == "path":
