@@ -184,6 +184,27 @@ implementation does **not** establish remote-execution hermeticity merely by
 setting `block-network` on compile and release actions. See the
 [design notes](architecture.md) before production adoption.
 
+## Test and release consumers
+
+```starlark
+load("@rules_elixir//:elixir_test.bzl", "elixir_test")
+
+elixir_test(
+    name = "test",
+    app = ":app",
+    shard_count = 4,
+    test_outputs = ["tmp/junit-reports"],
+)
+```
+
+All test shards consume the same compiled test application.
+`mix_args`, Bazel `--test_arg`, `env` and `data` are
+available for ordinary test configuration. `test_outputs` preserves selected
+project-relative paths under Bazel's undeclared test outputs, including failures.
+Prepare databases and other services in the consuming project before running
+the test. The rules do not execute test aliases that provision application
+infrastructure.
+
 ## CI drift checks
 
 ```starlark

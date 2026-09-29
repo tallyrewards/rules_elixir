@@ -14,6 +14,7 @@
 - Compile each dependency against only the root configuration keys it reads.
 - Reject an override target that provides a different application.
 - Declare native compiler inputs and auxiliary tools, preserve runfiles and reject unsupported platforms.
+- Run ExUnit against the precompiled test graph and retain requested test outputs.
 
 ## 1.3.0
 
