@@ -47,6 +47,7 @@ mix_app(
     }),
     app_name = "sample",
     generated_srcs = {":generated": "generated"},
+    incremental = True,
     mix_exs = "mix.exs",
     deps = mix_dependencies(),
 )

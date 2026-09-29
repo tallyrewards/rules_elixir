@@ -262,3 +262,28 @@ project nested below shared files, set `project_dir` and map source destinations
 accordingly. The test recomputes the manifest in an isolated offline workspace.
 No checked-in file is rewritten. On failure, the regenerated manifest is retained
 in Bazel's undeclared test outputs for comparison.
+
+## Incremental compilation
+
+`mix_app(incremental = True)` compiles a non-native root application through
+Bazel's persistent worker protocol. Use `--worker_sandboxing` and, when
+selecting a strategy explicitly, `--strategy=MixCompile=worker,sandboxed`.
+
+This is a persistent Mix state worker, not a persistent compiler. Every request
+starts a fresh Elixir VM, so loaded modules and configuration cannot leak between
+compilations. What persists is Mix's build directory, manifests and source
+timestamps, kept beside the worker's directory in Bazel's output base.
+
+- Ordinary `.ex` edits, additions and removals reuse that state.
+- Any other declared input change resets it: configuration, compiled
+  dependencies, generated trees, resources.
+- A failed compilation also resets it.
+
+Each response starts with `Mix compiler state: reused` or `reset`.
+
+The state lasts only as long as the worker process. An action-cache hit does not
+restore it. A new worker, a fresh CI runner or the sandbox strategy compiles the
+whole application. Remote workers must support the JSON worker protocol (see
+`--experimental_remote_mark_tool_inputs`). Measure worker reuse separately from
+action-cache reuse before relying on this in CI. Rebar and native applications
+are not supported.

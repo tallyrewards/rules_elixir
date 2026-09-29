@@ -6,9 +6,20 @@ defmodule RulesElixir.MixRunner do
     project = Path.join(work, "project")
     File.mkdir_p!(project)
 
-    for %{"source" => source, "destination" => destination} <- config["sources"] do
-      stage(Path.expand(source, execroot), Path.join(project, destination))
-    end
+    staged =
+      Enum.flat_map(config["sources"], fn %{"source" => source, "destination" => destination} ->
+        stage(Path.expand(source, execroot), Path.join(project, destination))
+      end)
+
+    inventory = Path.join(work, "staged.etf")
+
+    previous =
+      if File.exists?(inventory),
+        do: :erlang.binary_to_term(File.read!(inventory), [:safe]),
+        else: []
+
+    for removed <- previous -- staged, do: File.rm!(removed)
+    File.write!(inventory, :erlang.term_to_binary(staged))
 
     project = Path.join(project, config["project_dir"] || "")
 
@@ -130,6 +141,7 @@ defmodule RulesElixir.MixRunner do
 
     for dep <- config["dependencies"] do
       destination = Path.join(lib, dep["app"])
+      File.rm_rf!(destination)
       File.mkdir_p!(destination)
 
       for {kind, paths} <- dep["files"], source <- paths do
@@ -382,6 +394,7 @@ defmodule RulesElixir.MixRunner do
 
     for kind <- ~w(ebin priv include consolidated) do
       output = Path.expand(config["outputs"][kind], execroot)
+      File.rm_rf!(output)
       File.mkdir_p!(output)
       source = Path.join(app_path, kind)
       source = if not File.dir?(source) and kind in ~w(priv include), do: kind, else: source
@@ -430,13 +443,19 @@ defmodule RulesElixir.MixRunner do
 
   defp shell_quote(value), do: "'" <> String.replace(value, "'", "'\"'\"'") <> "'"
 
+  # Preserve unchanged source timestamps for Mix's incremental compiler. The
+  # input inventory above also removes sources deleted since the last request.
   defp stage(source, target) do
     if File.dir?(source) do
       File.mkdir_p!(target)
-      copy_contents(source, target)
+      Enum.flat_map(File.ls!(source), &stage(Path.join(source, &1), Path.join(target, &1)))
     else
       File.mkdir_p!(Path.dirname(target))
-      File.cp!(source, target)
+
+      unless File.regular?(target) and File.read!(source) == File.read!(target),
+        do: File.cp!(source, target)
+
+      [target]
     end
   end
 

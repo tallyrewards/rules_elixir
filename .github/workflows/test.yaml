@@ -201,6 +201,10 @@ jobs:
         env:
           BAZEL: bazelisk
         run: python3 examples/mix/invalidation_test.py
+      - name: Check incremental compiler edits against clean compilation
+        env:
+          BAZEL: bazelisk
+        run: python3 examples/mix/incremental_test.py
       - name: Reject native artifacts for an unsupported architecture
         working-directory: examples/mix
         run: |

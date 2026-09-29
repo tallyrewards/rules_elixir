@@ -187,7 +187,32 @@ def _compile(ctx, manager):
     inputs = depset(ctx.files.srcs + ctx.files.generated_srcs + [ctx.file.project_file, ctx.file._native_validator, ctx.file._beam_metadata] + ctx.files.archives + dependency_inputs(apps) + ([ctx.file._rebar3] if manager == "rebar3" else []), transitive = [native_inputs])
     tc = toolchain(ctx)
     validations = []
-    if ctx.attr.compile_config:
+    if ctx.attr.incremental:
+        if manager != "mix" or native != {} or ctx.attr.compile_config:
+            fail("incremental compilation currently supports non-native Mix root applications only")
+        config_file = ctx.actions.declare_file(ctx.label.name + ".mix.json")
+        ctx.actions.write(config_file, json.encode(config))
+        launcher = ctx.actions.declare_file(ctx.label.name + ".worker.sh")
+        ctx.actions.write(
+            launcher,
+            "#!/usr/bin/env bash\n" + _environment(tc) + "exec \"$ELIXIR/bin/elixir\" %s %s \"$@\"\n" % (shell.quote(ctx.file._worker.path), shell.quote(ctx.file._runner.path)),
+            is_executable = True,
+        )
+        args = ctx.actions.args()
+        args.add(config_file)
+        args.use_param_file("@%s", use_always = True)
+        args.set_param_file_format("multiline")
+        ctx.actions.run(
+            executable = launcher,
+            arguments = [args],
+            inputs = depset([config_file], transitive = [inputs]),
+            tools = [ctx.file._worker, ctx.file._runner] + tc.files.to_list(),
+            outputs = outputs.values(),
+            mnemonic = "MixCompile",
+            progress_message = "Mix compiling %s (%s)" % (ctx.attr.app_name, environment),
+            execution_requirements = {"block-network": "1", "supports-workers": "1", "requires-worker-protocol": "json"},
+        )
+    elif ctx.attr.compile_config:
         (config, validations) = _configured_compile(ctx, config, inputs, outputs, tc, environment, native_tools)
     else:
         _run(ctx, config, inputs, outputs.values(), tc, "MixCompile" if manager == "mix" else "RebarCompile", "%s compiling %s (%s)" % (manager, ctx.attr.app_name, environment), tools = native_tools)
@@ -344,6 +369,7 @@ _ATTRS = {
     "generated_srcs": attr.label_keyed_string_dict(allow_files = True),
     "compile_config": attr.label(providers = [MixConfigInfo]),
     "is_dependency": attr.bool(default = False),
+    "incremental": attr.bool(doc = "Opt in to retaining Mix compiler state with Bazel's worker strategy. Cold execution remains supported."),
     "native": attr.bool(doc = "Require native tools for generated native sources that cannot be detected during analysis."),
     "native_deps": attr.label_list(providers = [CcInfo], doc = "Declared C/C++ headers and static libraries used by the native compiler."),
     "deps": attr.label_list(providers = [ErlangAppInfo]),
@@ -351,6 +377,7 @@ _ATTRS = {
     "environment": attr.string(values = ["", "dev", "test", "prod"]),
     "_mix_env": attr.label(default = Label("//:mix_env")),
     "_runner": attr.label(default = Label("//private:mix_runner.exs"), allow_single_file = True),
+    "_worker": attr.label(default = Label("//private:mix_worker.exs"), allow_single_file = True),
     "_native_validator": attr.label(default = Label("//private:native_artifacts.ex"), allow_single_file = True),
     "_beam_metadata": attr.label(default = Label("//private:beam_metadata.ex"), allow_single_file = True),
     "_native_constraints": attr.label_list(default = NATIVE_CONSTRAINTS),

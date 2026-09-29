@@ -44,7 +44,10 @@ The rules and manifest schema are experimental. See [the usage guide](mix.md)
 for supported inputs and explicit adapter boundaries.
 
 The default cache boundary is an OTP application. A source edit can therefore
-recompile the whole application and invalidate all of its test shards. Affected-test selection is not implemented.
+recompile the whole application and invalidate all of its test shards. Opt-in
+persistent Mix state workers keep Mix's build directory between compilations,
+but only within a live worker; cached application outputs cannot recreate it. This
+optimization is experimental and does not implement affected-test selection.
 
 The OTP adapter uses the public Erlang toolchain and application provider.
 Existing direct Elixir compilation rules remain available, and their dependency

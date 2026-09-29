@@ -19,6 +19,7 @@
 - Set Mix partition identity before configuration and preserve external partitions when unsharded.
 - Assemble named releases from shared production compilation.
 - Compare release application metadata, actual BEAM inventories and runtime configuration.
+- Add opt-in persistent Mix state workers for incremental compilation of a root application. The effect on CI duration is unmeasured.
 
 ## 1.3.0
 
