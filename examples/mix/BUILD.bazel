@@ -79,3 +79,17 @@ toolchain(
     toolchain = ":native_tools",
     toolchain_type = "@rules_elixir//:mix_payloads_toolchain_type",
 )
+
+# An external CI matrix can select a Mix partition without Bazel sharding.
+elixir_test(
+    name = "external_partition_test",
+    app = ":app",
+    env = {
+        "EXPECTED_MIX_TEST_PARTITION": "2",
+        "MIX_TEST_PARTITION": "2",
+    },
+    mix_args = [
+        "--partitions",
+        "2",
+    ],
+)

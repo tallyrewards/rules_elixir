@@ -19,6 +19,17 @@ defmodule RulesElixir.MixRunner do
     System.put_env("MIX_ENV", config["root_environment"] || config["environment"])
     System.put_env("ERL_COMPILER_OPTIONS", "deterministic")
 
+    if config["operation"] == "test" do
+      total = String.to_integer(System.get_env("TEST_TOTAL_SHARDS", "1"))
+      index = String.to_integer(System.get_env("TEST_SHARD_INDEX", "0"))
+
+      # Project configuration may derive database/resource names from this value.
+      # Set it before Mix evaluates the project or loads its configuration.
+      if total > 1 or System.get_env("MIX_TEST_PARTITION") == nil do
+        System.put_env("MIX_TEST_PARTITION", to_string(index + 1))
+      end
+    end
+
     File.mkdir_p!(System.get_env("MIX_HOME"))
     Mix.start()
     Mix.env(String.to_atom(config["environment"]))
@@ -239,8 +250,6 @@ defmodule RulesElixir.MixRunner do
 
               "test" ->
                 total = String.to_integer(System.get_env("TEST_TOTAL_SHARDS", "1"))
-                index = String.to_integer(System.get_env("TEST_SHARD_INDEX", "0"))
-                System.put_env("MIX_TEST_PARTITION", to_string(index + 1))
                 if path = System.get_env("TEST_SHARD_STATUS_FILE"), do: File.write!(path, "")
                 args = ["--no-compile", "--no-deps-check"] ++ config["args"] ++ extra_args
                 args = if total > 1, do: args ++ ["--partitions", to_string(total)], else: args

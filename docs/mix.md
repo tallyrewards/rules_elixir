@@ -197,7 +197,11 @@ elixir_test(
 )
 ```
 
-All test shards consume the same compiled test application.
+All test shards consume the same `test` application. Bazel shard indices map to
+Mix's one-based partitions before loading project configuration. Without Bazel
+sharding, an explicit `MIX_TEST_PARTITION` is preserved; an external CI matrix
+can pass it through `--test_env=MIX_TEST_PARTITION` and select the partition count
+with `mix_args = ["--partitions", "4"]`. Keep `shard_count` at one in that mode.
 `mix_args`, Bazel `--test_arg`, `env` and `data` are
 available for ordinary test configuration. `test_outputs` preserves selected
 project-relative paths under Bazel's undeclared test outputs, including failures.

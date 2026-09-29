@@ -1,6 +1,10 @@
 defmodule SampleTest do
   use ExUnit.Case
 
+  test "partition identity is available while project configuration loads" do
+    assert Application.fetch_env!(:sample, :test_partition) in ["1", "2"]
+  end
+
   test "UTF-8 source and resource paths survive compilation and staging" do
     assert Sample.Unicode.greeting() == "Olá, café!\n"
     assert File.read!(Application.app_dir(:sample, "priv/café.txt")) == "Olá, café!\n"
