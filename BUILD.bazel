@@ -2,6 +2,7 @@ load(
     "@bazel_skylib//rules:common_settings.bzl",
     "string_flag",
 )
+load("//:tests/checksum_test.bzl", "checksum_tests")
 
 string_flag(
     name = "elixir_home",
@@ -13,3 +14,5 @@ toolchain_type(
     name = "toolchain_type",
     visibility = ["//visibility:public"],
 )
+
+checksum_tests()

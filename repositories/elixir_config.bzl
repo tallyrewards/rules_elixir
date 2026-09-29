@@ -42,6 +42,8 @@ def _impl(repository_ctx):
             sha256 = repository_ctx.attr.sha256s.get(name, None),
             elixir_home = repository_ctx.attr.elixir_homes.get(name, None),
         )
+        if elixir_installations[name].type != INSTALLATION_TYPE_EXTERNAL and not elixir_installations[name].sha256:
+            fail("Elixir installation '{}' downloads an archive and requires its sha256".format(name))
 
     # If we intentionally skipped probing a host-installed Elixir, still provide
     # a default "external" entry so default toolchain registration succeeds.
