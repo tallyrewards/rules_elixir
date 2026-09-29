@@ -160,3 +160,15 @@ jobs:
           name: bazel-testlogs-examples-internal-elixir
           path: |
             examples/internal-elixir/bazel-testlogs/*
+
+  examples-distributions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "29.0"
+          elixir-version: "1.20.3-otp-29"
+      - name: Test source and precompiled Elixir distributions
+        working-directory: examples/distributions
+        run: bazelisk test //... --test_output=errors

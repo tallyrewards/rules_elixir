@@ -34,6 +34,9 @@ This repository continues rabbitmq's `rules_elixir`, which is unmaintained.
 macro, provider or attribute changed; every commit between the two tags is one
 documented fix or addition. See [CHANGELOG.md](./CHANGELOG.md).
 
+The development distribution rules accept declared files. Direct callers should
+read the [migration guide](docs/distributions.md); extension tags are unchanged.
+
 ## Installation
 
 The development API is not published to the Bazel Central Registry. Start with

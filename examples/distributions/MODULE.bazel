@@ -1,0 +1,41 @@
+module(
+    name = "distribution_example",
+    version = "0.1.0",
+)
+
+bazel_dep(name = "rules_shell", version = "0.8.0")
+bazel_dep(
+    name = "rules_erlang",
+    version = "3.21.0",
+)
+bazel_dep(
+    name = "rules_elixir",
+    version = "1.2.0",
+)
+local_path_override(
+    module_name = "rules_elixir",
+    path = "../..",
+)
+
+# See the note in the root MODULE.bazel. This example is its own module, so it
+# needs its own override; the one in the ruleset it depends on does not carry
+# over.
+git_override(
+    module_name = "rules_erlang",
+    commit = "13977b3309fd0b0d6795f322cffd86a8c161be64",  # 3.21.0
+    remote = "https://github.com/bazelverse/rules_erlang.git",
+)
+
+elixir_config = use_extension("@rules_elixir//bzlmod:extensions.bzl", "elixir_config")
+elixir_config.internal_elixir_from_github_release(
+    name = "source",
+    sha256 = "ff22a894b130631443db1a193b4e8cb4762f697128566e43da848fd16c3777bd",
+    version = "1.20.3",
+)
+elixir_config.prebuilt_elixir_from_hex_builds(
+    name = "prebuilt",
+    otp_major = "29",
+    sha256 = "51f799b78374d569a5df659bdedeb0dd9ef8251230bcdaef00c533019086e625",
+    version = "1.20.3",
+)
+use_repo(elixir_config, "elixir_config")

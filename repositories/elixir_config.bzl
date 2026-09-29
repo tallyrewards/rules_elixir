@@ -59,28 +59,20 @@ def _impl(repository_ctx):
                 },
                 False,
             )
-        elif props.type == INSTALLATION_TYPE_PREBUILT:
-            repository_ctx.template(
-                "{}/BUILD.bazel".format(name),
-                Label("//repositories:BUILD_prebuilt.tpl"),
-                {
-                    "%{URL}": props.url,
-                    "%{STRIP_PREFIX}": props.strip_prefix or "",
-                    "%{SHA_256}": props.sha256 or "",
-                    "%{ELIXIR_VERSION_ID}": props.identifier,
-                },
-                False,
-            )
         else:
+            if not props.sha256:
+                fail("Elixir distribution {} requires a sha256 checksum".format(name))
+            repository_ctx.download_and_extract(
+                url = props.url,
+                output = name + "/distribution",
+                sha256 = props.sha256,
+                stripPrefix = props.strip_prefix or "",
+            )
+            repository_ctx.file(name + "/distribution/.rules_elixir_root", "")
             repository_ctx.template(
                 "{}/BUILD.bazel".format(name),
-                Label("//repositories:BUILD_internal.tpl"),
-                {
-                    "%{URL}": props.url,
-                    "%{STRIP_PREFIX}": props.strip_prefix or "",
-                    "%{SHA_256}": props.sha256 or "",
-                    "%{ELIXIR_VERSION_ID}": props.identifier,
-                },
+                Label("//repositories:BUILD_prebuilt.tpl") if props.type == INSTALLATION_TYPE_PREBUILT else Label("//repositories:BUILD_internal.tpl"),
+                {"%{ELIXIR_VERSION_ID}": props.identifier},
                 False,
             )
 
