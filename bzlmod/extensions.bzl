@@ -88,7 +88,7 @@ internal_elixir_from_http_archive = tag_class(attrs = {
     "version": attr.string(),
     "url": attr.string(),
     "strip_prefix": attr.string(),
-    "sha256": attr.string(),
+    "sha256": attr.string(mandatory = True),
 })
 
 internal_elixir_from_github_release = tag_class(attrs = {
@@ -110,7 +110,7 @@ prebuilt_elixir_from_http_archive = tag_class(attrs = {
     "version": attr.string(),
     "url": attr.string(),
     "strip_prefix": attr.string(),
-    "sha256": attr.string(),
+    "sha256": attr.string(mandatory = True),
 })
 
 # Convenience wrapper over builds.hex.pm. Elixir is architecture-independent bytecode, so a
@@ -121,7 +121,7 @@ prebuilt_elixir_from_hex_builds = tag_class(attrs = {
     "otp_major": attr.string(
         doc = "Major OTP version the build targets, e.g. \"28\" for v1.19.4-otp-28.",
     ),
-    "sha256": attr.string(),
+    "sha256": attr.string(mandatory = True),
 })
 
 elixir_config = module_extension(

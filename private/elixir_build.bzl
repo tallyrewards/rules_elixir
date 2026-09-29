@@ -22,6 +22,12 @@ ElixirInfo = provider(
     ],
 )
 
+def _expected_sha256(ctx):
+    value = ctx.attr.sha256v.lower()
+    if len(value) != 64 or any([c not in "0123456789abcdef" for c in value.elems()]):
+        fail("{}: sha256v must be the archive's 64-character SHA-256".format(ctx.label))
+    return value
+
 def _impl(ctx):
     (_, _, filename) = ctx.attr.url.rpartition("/")
     downloaded_archive = ctx.actions.declare_file(filename)
@@ -64,11 +70,9 @@ curl -L "{archive_url}" -o {archive_path}
         outputs = [release_dir],
         command = """set -euo pipefail
 
-if [ -n "{sha256}" ]; then
-    if [ "{sha256}" != "$(cat "{sha256file}")" ]; then
-        echo "ERROR: Checksum mismatch. $(basename "{archive_path}") $(cat "{sha256file}") != {sha256}"
-        exit 1
-    fi
+if [ "{sha256}" != "$(cat "{sha256file}")" ]; then
+    echo "ERROR: Checksum mismatch. $(basename "{archive_path}") $(cat "{sha256file}") != {sha256}"
+    exit 1
 fi
 
 {maybe_install_erlang}
@@ -94,7 +98,7 @@ make
 cp -r bin $ABS_RELEASE_DIR/
 cp -r lib $ABS_RELEASE_DIR/
 """.format(
-            sha256 = ctx.attr.sha256v,
+            sha256 = _expected_sha256(ctx),
             sha256file = sha256file.path,
             maybe_install_erlang = maybe_install_erlang(ctx),
             erlang_home = erlang_home,
@@ -152,7 +156,10 @@ elixir_build = rule(
     attrs = {
         "url": attr.string(mandatory = True),
         "strip_prefix": attr.string(),
-        "sha256v": attr.string(),
+        "sha256v": attr.string(
+            mandatory = True,
+            doc = "SHA-256 of the archive. The download is rejected unless it matches.",
+        ),
         "sha256": tools["sha256"],
     },
     toolchains = ["@rules_erlang//tools:toolchain_type"],
@@ -198,11 +205,9 @@ curl -L "{archive_url}" -o {archive_path}
         outputs = [release_dir],
         command = """set -euo pipefail
 
-if [ -n "{sha256}" ]; then
-    if [ "{sha256}" != "$(cat "{sha256file}")" ]; then
-        echo "ERROR: Checksum mismatch. $(basename "{archive_path}") $(cat "{sha256file}") != {sha256}"
-        exit 1
-    fi
+if [ "{sha256}" != "$(cat "{sha256file}")" ]; then
+    echo "ERROR: Checksum mismatch. $(basename "{archive_path}") $(cat "{sha256file}") != {sha256}"
+    exit 1
 fi
 
 ABS_ARCHIVE=$PWD/{archive_path}
@@ -242,7 +247,7 @@ chmod +x bin/* 2>/dev/null || true
 cp -r bin "$ABS_RELEASE_DIR"/
 cp -r lib "$ABS_RELEASE_DIR"/
 """.format(
-            sha256 = ctx.attr.sha256v,
+            sha256 = _expected_sha256(ctx),
             sha256file = sha256file.path,
             archive_path = downloaded_archive.path,
             strip_components = strip_components,
@@ -300,7 +305,10 @@ elixir_prebuilt = rule(
     attrs = {
         "url": attr.string(mandatory = True),
         "strip_prefix": attr.string(),
-        "sha256v": attr.string(),
+        "sha256v": attr.string(
+            mandatory = True,
+            doc = "SHA-256 of the archive. The download is rejected unless it matches.",
+        ),
         "sha256": tools["sha256"],
     },
     toolchains = ["@rules_erlang//tools:toolchain_type"],

@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Downloaded Elixir archives must be pinned. The `sha256` of
+  `internal_elixir_from_http_archive`, `prebuilt_elixir_from_http_archive` and
+  `prebuilt_elixir_from_hex_builds` is now required, and `elixir_build` and
+  `elixir_prebuilt` reject an empty or malformed `sha256v` instead of skipping
+  the check.
+
 ## 1.3.0
 
 Adds a third way to supply Elixir: an already-compiled distribution.
