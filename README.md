@@ -110,6 +110,8 @@ build --repo_env=RULES_ERLANG_SKIP_SYSTEM=1
 
 ## Rules
 
+See the [experimental Mix guide](docs/mix.md) for the APIs available on this branch.
+
 | Rule | What it does |
 | --- | --- |
 | `elixir_app` | Compile an Elixir application directly, without Mix |
