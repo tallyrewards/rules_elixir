@@ -1,0 +1,4 @@
+%{
+  "jason": {:hex, :jason, "1.4.5", "2e3a008590b0b8d7388c20293e9dcc9cf3e5d642fd2a114e4cbbb52e595d940a", [:mix], [{:decimal, "~> 1.0 or ~> 2.0 or ~> 3.0", [hex: :decimal, repo: "hexpm", optional: true]}], "hexpm", "b0c823996102bcd0239b3c2444eb00409b72f6a140c1950bc8b457d836b30684"},
+  "telemetry": {:git, "https://github.com/beam-telemetry/telemetry.git", "7baf8085e406d5ae9e43b284d7c866742ae04b28", [ref: "7baf8085e406d5ae9e43b284d7c866742ae04b28"]},
+}

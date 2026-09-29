@@ -1,0 +1,12 @@
+"""A small Erlang application compiled through the Rebar adapter."""
+
+load("@rules_elixir//private:mix_app.bzl", "rebar_app")
+
+rebar_app(
+    name = "app",
+    srcs = glob(["src/**"]),
+    app_name = "sample_erlang",
+    archives = [],
+    project_file = "rebar.config",
+    visibility = ["//visibility:public"],
+)

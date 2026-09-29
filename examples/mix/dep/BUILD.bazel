@@ -1,0 +1,38 @@
+load("@rules_elixir//:mix_app.bzl", "mix_app")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+filegroup(
+    name = "sources",
+    srcs = ["mix.exs"] + glob(["lib/**"]),
+    visibility = ["//visibility:public"],
+)
+
+[mix_app(
+    name = name,
+    srcs = glob(["lib/**"]),
+    app_name = "sample_dep",
+    archives = [],
+    compile_config = "//:compile_config",
+    environment = "prod",
+    is_dependency = True,
+    mix_exs = "mix.exs",
+    visibility = ["//visibility:public"],
+) for name in [
+    "app",
+    "app_repeat",
+]]
+
+sh_test(
+    name = "reproducibility_test",
+    srcs = ["reproducibility_test.sh"],
+    args = [
+        "--first",
+        "$(rootpaths :app)",
+        "--second",
+        "$(rootpaths :app_repeat)",
+    ],
+    data = [
+        ":app",
+        ":app_repeat",
+    ],
+)
