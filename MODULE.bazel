@@ -48,3 +48,8 @@ use_repo(
 register_toolchains(
     "@elixir_config//external:toolchain",
 )
+
+hex = use_extension("//bzlmod:extensions.bzl", "hex")
+use_repo(hex, "hex")
+
+bazel_dep(name = "rules_shell", version = "0.8.0")

@@ -154,7 +154,7 @@ load("@rules_elixir//:mix_archive_build.bzl", "mix_archive_build")
 # Consumed via `mix archive.install`, not as an ERL_LIBS dependency, so it has to be a .ez.
 mix_archive_build(
     name = "archive",
-    srcs = ["mix.exs"] + glob(["lib/**/*"]),
+    srcs = ["mix.exs"] + glob(["lib/**/*", "src/**/*", "include/**/*", "priv/**/*"], allow_empty = True),
     out = "hex.ez",
     visibility = ["//visibility:public"],
 )
