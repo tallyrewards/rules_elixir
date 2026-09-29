@@ -184,6 +184,48 @@ implementation does **not** establish remote-execution hermeticity merely by
 setting `block-network` on compile and release actions. See the
 [design notes](architecture.md) before production adoption.
 
+## Test and release consumers
+
+```starlark
+load("@rules_elixir//:elixir_test.bzl", "elixir_test")
+
+mix_app(
+    name = "app",
+    # ...
+    srcs = ["mix.lock"] + glob(["lib/**", "config/**", "priv/**"]) + select({
+        "@rules_elixir//:mix_test": glob(["test/support/**"]),
+        "//conditions:default": [],
+    }),
+)
+
+elixir_test(
+    name = "test",
+    srcs = glob(["test/**"], exclude = ["test/support/**"]),
+    app = ":app",
+    shard_count = 4,
+    test_outputs = ["tmp/junit-reports"],
+)
+```
+
+Only files the compiler reads belong in the application's `srcs`, such as
+`test/support` in the test environment. Test scripts, `test_helper.exs` and
+fixtures belong to `elixir_test`, so editing a test reruns the test without
+recompiling the application. A test stages the project's `mix.exs`, lockfile and
+`config/`, its own `srcs`, and the compiled application graph; it does not depend
+on the application's other sources.
+
+All test shards consume the same `test` application. Bazel shard indices map to
+Mix's one-based partitions before loading project configuration. Without Bazel
+sharding, an explicit `MIX_TEST_PARTITION` is preserved; an external CI matrix
+can pass it through `--test_env=MIX_TEST_PARTITION` and select the partition count
+with `mix_args = ["--partitions", "4"]`. Keep `shard_count` at one in that mode.
+`mix_args`, Bazel `--test_arg`, `env` and `data` (runfiles, not staged into the
+project) are available for ordinary test configuration. `test_outputs` preserves selected
+project-relative paths under Bazel's undeclared test outputs, including failures.
+Prepare databases and other services in the consuming project before running
+the test. The rules do not execute test aliases that provision application
+infrastructure.
+
 ## CI drift checks
 
 ```starlark

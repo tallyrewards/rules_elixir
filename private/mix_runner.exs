@@ -19,6 +19,17 @@ defmodule RulesElixir.MixRunner do
     System.put_env("MIX_ENV", config["root_environment"] || config["environment"])
     System.put_env("ERL_COMPILER_OPTIONS", "deterministic")
 
+    if config["operation"] == "test" do
+      total = String.to_integer(System.get_env("TEST_TOTAL_SHARDS", "1"))
+      index = String.to_integer(System.get_env("TEST_SHARD_INDEX", "0"))
+
+      # Project configuration may derive database/resource names from this value.
+      # Set it before Mix evaluates the project or loads its configuration.
+      if total > 1 or System.get_env("MIX_TEST_PARTITION") == nil do
+        System.put_env("MIX_TEST_PARTITION", to_string(index + 1))
+      end
+    end
+
     File.mkdir_p!(System.get_env("MIX_HOME"))
     Mix.start()
     Mix.env(String.to_atom(config["environment"]))
@@ -201,6 +212,16 @@ defmodule RulesElixir.MixRunner do
                 Mix.Tasks.Loadconfig.run([])
             end
 
+            if config["operation"] in ["test", "release"] do
+              # Mix dispatches aliases before the task can honor --no-compile.
+              # Compilation may reenable itself, so task completion markers are
+              # insufficient. Remove only this alias from the consumer's config;
+              # keep custom release-step aliases available. This Mix adapter is
+              # covered by the supported-version integration fixtures.
+              aliases = Keyword.delete(Mix.Project.config()[:aliases] || [], :compile)
+              Mix.ProjectStack.merge_config(aliases: aliases)
+            end
+
             case config["operation"] do
               "compile" ->
                 args = ["--no-deps-check", "--no-deps-compile", "--no-prune-code-paths"]
@@ -226,6 +247,13 @@ defmodule RulesElixir.MixRunner do
                 else
                   compile.()
                 end
+
+              "test" ->
+                total = String.to_integer(System.get_env("TEST_TOTAL_SHARDS", "1"))
+                if path = System.get_env("TEST_SHARD_STATUS_FILE"), do: File.write!(path, "")
+                args = ["--no-compile", "--no-deps-check"] ++ config["args"] ++ extra_args
+                args = if total > 1, do: args ++ ["--partitions", to_string(total)], else: args
+                Mix.Tasks.Test.run(args)
             end
           end
         )

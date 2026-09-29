@@ -16,7 +16,9 @@ MixConfigInfo = provider(fields = {
 
 MixProjectInfo = provider(fields = {
     "config": "Source and dependency description for assembly/test consumers",
-    "inputs": "Declared project and compiled closure inputs",
+    "project_sources": "Staged files that define the project: mix.exs, the lockfile and config/",
+    "project_files": "Depset of those files and the Mix archives",
+    "root": "Short-path prefix that project-relative destinations are taken from",
     "environment": "Effective project compilation environment",
     "consolidated": "Consolidated protocols",
 })
@@ -205,7 +207,27 @@ def _compile(ctx, manager):
     ]
 
     if manager == "mix":
-        providers.append(MixProjectInfo(config = config, inputs = inputs, environment = environment, consolidated = outputs["consolidated"]))
+        # Consumers run Mix with compilation disabled. They evaluate the project
+        # and load its configuration, but read compiled code from the outputs,
+        # so they depend on these files rather than on the compiler's inputs.
+        prefix = project_dir + "/" if project_dir else ""
+        project_sources = [
+            source
+            for source in sources
+            if source["source"] == ctx.file.project_file.path or
+               source["destination"] == prefix + "mix.lock" or
+               source["destination"].startswith(prefix + "config/")
+        ]
+        selected = {source["source"]: True for source in project_sources}
+        providers.append(MixProjectInfo(
+            config = config,
+            project_sources = project_sources,
+            # Hex must be installed for Mix to evaluate a project with Hex dependencies.
+            project_files = depset([f for f in files if f.path in selected] + ctx.files.archives),
+            root = root,
+            environment = environment,
+            consolidated = outputs["consolidated"],
+        ))
     return providers
 
 def _run(ctx, config, inputs, outputs, tc, mnemonic, progress_message, prelude = "", status = None, tools = []):
