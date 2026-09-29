@@ -201,3 +201,11 @@ jobs:
         env:
           BAZEL: bazelisk
         run: python3 examples/mix/invalidation_test.py
+      - name: Reject native artifacts for an unsupported architecture
+        working-directory: examples/mix
+        run: |
+          if bazelisk build //wrong_native:app > "$RUNNER_TEMP/wrong-native.log" 2>&1; then
+            cat "$RUNNER_TEMP/wrong-native.log"
+            exit 1
+          fi
+          grep -F "contains linux/machine-0, expected" "$RUNNER_TEMP/wrong-native.log"

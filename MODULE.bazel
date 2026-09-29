@@ -63,3 +63,5 @@ http_file(
     sha256 = "af85aab41f9fd74bdd6341ebdf6fe9c88077aab9f8eac82371583fa02f2b0bdf",
     urls = ["https://github.com/erlang/rebar3/releases/download/3.27.0/rebar3"],
 )
+
+bazel_dep(name = "rules_cc", version = "0.2.22")

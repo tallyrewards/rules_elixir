@@ -1,5 +1,7 @@
 defmodule Sample do
   @answer SampleDep.answer()
+  @native_answer SampleNative.answer()
+  def native_answer, do: @native_answer
   @config_marker SampleDep.config_marker()
   @root_env SampleDep.root_env()
   def root_env, do: @root_env

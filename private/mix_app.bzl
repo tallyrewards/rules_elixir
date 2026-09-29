@@ -2,8 +2,11 @@
 
 load("@bazel_skylib//lib:shell.bzl", "shell")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load("@rules_cc//cc:find_cc_toolchain.bzl", "use_cc_toolchain")
+load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("@rules_erlang//:erlang_app_info.bzl", "ErlangAppInfo")
 load(":elixir_toolchain.bzl", "elixir_dirs", "erlang_dirs", "maybe_install_erlang")
+load(":native.bzl", "NATIVE_CONSTRAINTS", "native_configuration", "target_platform")
 
 MixConfigInfo = provider(fields = {
     "entrypoint": "Config entrypoint",
@@ -169,19 +172,23 @@ def _compile(ctx, manager):
         "archives": [f.path for f in ctx.files.archives],
         "dependencies": dependency_description(apps),
         "outputs": {k: v.path for k, v in outputs.items()},
+        "native_validator": ctx.file._native_validator.path,
         "beam_metadata": ctx.file._beam_metadata.path,
+        "target_platform": target_platform(ctx),
     }
     if manager == "rebar3":
         config["rebar3"] = ctx.file._rebar3.path
+    (native, native_inputs, native_tools) = native_configuration(ctx)
+    config["native"] = native
     if ctx.attr.compile_config and (manager != "mix" or not ctx.attr.is_dependency):
         fail("compile_config applies to Mix dependencies; a root application loads its own configuration, and Rebar applications compile without it")
-    inputs = depset(ctx.files.srcs + ctx.files.generated_srcs + [ctx.file.project_file, ctx.file._beam_metadata] + ctx.files.archives + dependency_inputs(apps) + ([ctx.file._rebar3] if manager == "rebar3" else []))
+    inputs = depset(ctx.files.srcs + ctx.files.generated_srcs + [ctx.file.project_file, ctx.file._native_validator, ctx.file._beam_metadata] + ctx.files.archives + dependency_inputs(apps) + ([ctx.file._rebar3] if manager == "rebar3" else []), transitive = [native_inputs])
     tc = toolchain(ctx)
     validations = []
     if ctx.attr.compile_config:
-        (config, validations) = _configured_compile(ctx, config, inputs, outputs, tc, environment)
+        (config, validations) = _configured_compile(ctx, config, inputs, outputs, tc, environment, native_tools)
     else:
-        _run(ctx, config, inputs, outputs.values(), tc, "MixCompile" if manager == "mix" else "RebarCompile", "%s compiling %s (%s)" % (manager, ctx.attr.app_name, environment))
+        _run(ctx, config, inputs, outputs.values(), tc, "MixCompile" if manager == "mix" else "RebarCompile", "%s compiling %s (%s)" % (manager, ctx.attr.app_name, environment), tools = native_tools)
     providers = [
         DefaultInfo(files = depset(outputs.values())),
         OutputGroupInfo(_validation = depset(validations)),
@@ -201,11 +208,12 @@ def _compile(ctx, manager):
         providers.append(MixProjectInfo(config = config, inputs = inputs, environment = environment, consolidated = outputs["consolidated"]))
     return providers
 
-def _run(ctx, config, inputs, outputs, tc, mnemonic, progress_message, prelude = "", status = None):
+def _run(ctx, config, inputs, outputs, tc, mnemonic, progress_message, prelude = "", status = None, tools = []):
     config_file = ctx.actions.declare_file("%s.%s.mix.json" % (ctx.label.name, mnemonic.lower()))
     ctx.actions.write(config_file, json.encode(config))
     ctx.actions.run_shell(
         inputs = depset([config_file, ctx.file._runner], transitive = [inputs, tc.files]),
+        tools = tools,
         outputs = outputs,
         command = _environment(tc) + prelude + _invoke(ctx, config_file, status),
         mnemonic = mnemonic,
@@ -213,7 +221,7 @@ def _run(ctx, config, inputs, outputs, tc, mnemonic, progress_message, prelude =
         execution_requirements = {"block-network": "1"},
     )
 
-def _configured_compile(ctx, config, inputs, outputs, tc, environment):
+def _configured_compile(ctx, config, inputs, outputs, tc, environment, tools):
     """Compile a dependency against only the root configuration it reads.
 
     The first compilation sees no root configuration and records every
@@ -235,6 +243,7 @@ def _configured_compile(ctx, config, inputs, outputs, tc, environment):
         "MixCompile",
         "Mix compiling %s (%s)" % (app, environment),
         status = status,
+        tools = tools,
     )
 
     projection = ctx.actions.declare_file("%s/%s.config" % (ctx.label.name, app))
@@ -265,6 +274,7 @@ def _configured_compile(ctx, config, inputs, outputs, tc, environment):
         "MixConfigure",
         "Mix configuring %s (%s)" % (app, environment),
         prelude = "\n".join(copy),
+        tools = tools,
     )
 
     # Compiling with configured values can take branches the unconfigured
@@ -312,24 +322,31 @@ _ATTRS = {
     "generated_srcs": attr.label_keyed_string_dict(allow_files = True),
     "compile_config": attr.label(providers = [MixConfigInfo]),
     "is_dependency": attr.bool(default = False),
+    "native": attr.bool(doc = "Require native tools for generated native sources that cannot be detected during analysis."),
+    "native_deps": attr.label_list(providers = [CcInfo], doc = "Declared C/C++ headers and static libraries used by the native compiler."),
     "deps": attr.label_list(providers = [ErlangAppInfo]),
     "archives": attr.label_list(allow_files = [".ez"], default = [Label("@hex//:archive")]),
     "environment": attr.string(values = ["", "dev", "test", "prod"]),
     "_mix_env": attr.label(default = Label("//:mix_env")),
     "_runner": attr.label(default = Label("//private:mix_runner.exs"), allow_single_file = True),
+    "_native_validator": attr.label(default = Label("//private:native_artifacts.ex"), allow_single_file = True),
     "_beam_metadata": attr.label(default = Label("//private:beam_metadata.ex"), allow_single_file = True),
+    "_native_constraints": attr.label_list(default = NATIVE_CONSTRAINTS),
+    "_native_exec_platform": attr.label(default = Label("//:native_exec_platform"), cfg = "exec"),
 }
 
 mix_app = rule(
     implementation = _impl,
+    fragments = ["cpp"],
     attrs = _ATTRS,
-    toolchains = ["//:toolchain_type"],
+    toolchains = ["//:toolchain_type", config_common.toolchain_type("//:mix_payloads_toolchain_type", mandatory = False)] + use_cc_toolchain(),
     provides = [ErlangAppInfo, MixProjectInfo],
 )
 
 rebar_app = rule(
     implementation = _rebar_impl,
+    fragments = ["cpp"],
     attrs = dict(_ATTRS, _rebar3 = attr.label(default = Label("@rebar3//file"), allow_single_file = True, cfg = "exec")),
-    toolchains = ["//:toolchain_type"],
+    toolchains = ["//:toolchain_type", config_common.toolchain_type("//:mix_payloads_toolchain_type", mandatory = False)] + use_cc_toolchain(),
     provides = [ErlangAppInfo],
 )

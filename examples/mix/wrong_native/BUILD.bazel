@@ -1,0 +1,15 @@
+load("@rules_elixir//:mix_app.bzl", "mix_app")
+load("//:generated.bzl", "bad_native_library")
+
+bad_native_library(
+    name = "artifact",
+    tags = ["manual"],
+)
+
+mix_app(
+    name = "app",
+    app_name = "wrong_native",
+    generated_srcs = {":artifact": "priv/wrong.so"},
+    mix_exs = "mix.exs",
+    tags = ["manual"],
+)
