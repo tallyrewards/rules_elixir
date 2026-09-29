@@ -11,9 +11,9 @@ load(
 
 elixir_build(
     name = "elixir_build",
-    url = "%{URL}",
-    strip_prefix = "%{STRIP_PREFIX}",
-    sha256v = "%{SHA_256}",
+    srcs = glob(["distribution/**"]),
+    root = "distribution/.rules_elixir_root",
+    visibility = ["//visibility:public"],
 )
 
 elixir_toolchain(

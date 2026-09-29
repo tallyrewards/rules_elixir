@@ -3,6 +3,7 @@
 ## Unreleased — experimental Mix graph
 
 - Upgrade to rules_erlang 3.21.0 and use its public toolchain and application APIs.
+- Fetch Elixir distributions during repository setup; direct rules now use srcs and root.
 
 ## 1.3.0
 
