@@ -7,7 +7,13 @@ defmodule Sample.MixProject do
       version: "0.1.0",
       aliases: [compile: [&prepare/1, "compile"]],
       deps: [
-        {:sample_dep, path: "dep", runtime: false}
+        {:sample_dep, path: "dep", runtime: false},
+        {:jason, "~> 1.4.4"},
+        {:telemetry,
+         git: "https://github.com/beam-telemetry/telemetry.git",
+         ref: "7baf8085e406d5ae9e43b284d7c866742ae04b28",
+         manager: :rebar3,
+         only: :test}
       ],
       elixirc_paths:
         if(Mix.env() == :test, do: ["lib", "generated", "support"], else: ["lib", "generated"])

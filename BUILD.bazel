@@ -4,6 +4,7 @@ load(
 )
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//:ex_unit_test.bzl", "ex_unit_test")
+load("//:tests/manifest_test.bzl", "manifest_tests", "override_tests")
 load("//tools:elixir_vars.bzl", "ELIXIR_VARS_ENV_MAP")
 
 string_flag(
@@ -68,3 +69,7 @@ ex_unit_test(
     data = ["//private:beam_metadata.ex"],
     env = {"ERL_COMPILER_OPTIONS": "deterministic"},
 )
+
+manifest_tests()
+
+override_tests()

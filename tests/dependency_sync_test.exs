@@ -159,4 +159,40 @@ defmodule DependencySyncTest do
     assert [%{"app" => "leaf"}] = graph["packages"]["parent"]["dependencies"]
   end
 
+  test "Bazel Git sources retain exact provenance without a Git checkout", c do
+    revision = String.duplicate("a", 40)
+    url = "https://example.invalid/leaf.git"
+    project(c.root, :root, "[{:leaf, git: #{inspect(url)}, ref: #{inspect(revision)}}]")
+    leaf = Path.join(c.root, "deps/leaf")
+    project(leaf, :leaf, "[]")
+
+    File.write!(
+      Path.join(c.root, "mix.lock"),
+      inspect(%{leaf: {:git, url, revision, [ref: revision]}})
+    )
+
+    marker = Path.join(leaf, ".rules_elixir_git.json")
+    identity = %{"url" => url, "revision" => revision, "submodules" => false}
+    File.write!(marker, JSON.encode!(identity))
+    {_, status} = sync(c)
+    assert status != 0
+
+    assert {_, 0} = sync(c, ["--bazel-sources"])
+    source = snapshot(c.root, "test")["packages"]["leaf"]["source"]
+    assert source["type"] == "git"
+    assert source["revision"] == revision
+    assert source["url"] == url
+    assert {_, 0} = sync(c, ["--bazel-sources", "--check"])
+
+    for mismatched <- [
+          %{identity | "revision" => String.duplicate("b", 40)},
+          %{identity | "url" => "https://example.invalid/other.git"},
+          %{identity | "submodules" => true}
+        ] do
+      File.write!(marker, JSON.encode!(mismatched))
+      {message, status} = sync(c, ["--bazel-sources"])
+      assert status != 0
+      assert message =~ "Bazel Git source does not match"
+    end
+  end
 end

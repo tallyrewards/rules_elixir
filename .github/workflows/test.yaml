@@ -197,3 +197,7 @@ jobs:
       - name: Test Mix application example
         working-directory: examples/mix
         run: bazelisk test //... --test_output=errors
+      - name: Check that edits rerun only the actions that read them
+        env:
+          BAZEL: bazelisk
+        run: python3 examples/mix/invalidation_test.py

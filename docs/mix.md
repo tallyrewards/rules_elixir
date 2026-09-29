@@ -38,9 +38,43 @@ tools are declared. Root and dependency compile aliases run inside their compile
 action and are suppressed in precompiled test/release consumers. Represent unsupported native builders with explicit Bazel
 targets via overrides rather than allowing action-time dependency fetching.
 
+## Materialize the graph
+
+In addition to the normal Elixir/Erlang toolchain setup:
+
+```starlark
+packages = use_extension("@rules_elixir//bzlmod:mix_deps.bzl", "mix_deps")
+packages.from_file(
+    name = "project_deps",
+    manifest = "//:rules_elixir.lock.json",
+    compile_config = "//:compile_config",
+)
+use_repo(packages, "project_deps")
+```
+
+Repository evaluation reads JSON and fetches pinned sources; it does not run
+Mix. Hex archives are checksum verified; Git sources use full revisions. Git
+repositories generate a provenance file for offline drift checks, so those checks
+do not need a `.git` directory or run Git inside build actions. Give
+independent roots distinct graph names. A graph rejects source identity conflicts,
+unresolved edges and cycles. A compiled closure also rejects two providers for
+the same OTP application rather than silently choosing one.
+
+Path packages require an explicit target:
+
+```starlark
+packages.override(graph = "project_deps", app = "shared", target = "//shared:app")
+```
+
+Overrides are checked against resolved package names, and an override target
+must provide the application it replaces. They are explicit adapter boundaries;
+the override author must preserve the resolved application's behavior. Inactive packages may still be materialized for drift checking;
+the generated `mix_dependencies()` selects the actual root graph.
+
 ## Compile an application
 
 ```starlark
+load("@project_deps//:defs.bzl", "mix_dependencies")
 load("@rules_elixir//:mix_app.bzl", "mix_app")
 load("@rules_elixir//:mix_config.bzl", "mix_config")
 
@@ -55,7 +89,7 @@ mix_app(
     app_name = "my_app",
     mix_exs = "mix.exs",
     srcs = ["mix.lock"] + glob(["lib/**", "config/**", "priv/**"]),
-    deps = ["//dependency:app"],
+    deps = mix_dependencies(),
 )
 ```
 
@@ -65,12 +99,24 @@ their common source layout, including parent files such as `../VERSION`.
 file or TreeArtifact at a project-relative destination. Cross-repository inputs
 must use that mapping rather than relying on an accidental common prefix.
 
-`mix_config` is necessary when dependencies read root application configuration,
-including `Application.compile_env/3`. Generated dependencies load it using the
-root environment, then compile using their own resolved environment (normally
-`prod`). Configuration files participate in those actions' cache keys. Local
-path adapters should set `compile_config`, `is_dependency = True` and the
-appropriate `environment` themselves.
+`mix_config` evaluates the root configuration for the current environment.
+Dependencies compile in their own resolved environment (normally `prod`) against
+the part of it they read, as they would under Mix:
+
+1. A dependency first compiles without root configuration, recording every
+   application environment key it reads. That includes `Application.compile_env/3`
+   and `Application.get_env/3` calls the compiler does not track.
+2. The keys it read select their configured values.
+3. With no configured keys, the first result is used. Otherwise the dependency
+   compiles again with those values.
+
+A configuration edit therefore recompiles only the dependencies that read an
+edited key, and whatever is compiled against them. A dependency that reads a
+configured key only once configured (a conditional read) fails the build, naming
+the key, rather than compiling without its value. As in Mix, Rebar dependencies
+compile without root configuration. Local path adapters should set
+`compile_config`, `is_dependency = True` and the appropriate `environment`
+themselves.
 
 The canonical flag is `--@rules_elixir//:mix_env=dev|test|prod`. Test/release
 transitions change only this setting on the application edge. It is target
@@ -79,3 +125,23 @@ Compilers run offline with dependency compilation/checks disabled. Dependencies
 are presented as symlinks to their existing artifacts, not copied for every
 application. Each app exports its own `ebin`, `priv`, `include` and consolidated
 protocols; release outputs contain bytes rather than temporary symlinks.
+
+## CI drift checks
+
+```starlark
+load("@project_deps//:sources.bzl", "mix_dependency_sources")
+load("@rules_elixir//:mix_lock_test.bzl", "mix_lock_test")
+
+mix_lock_test(
+    name = "lock_test",
+    manifest = "rules_elixir.lock.json",
+    sources = mix_dependency_sources() | {":analysis_sources": ""},
+)
+```
+
+`analysis_sources` must supply `mix.exs`, `mix.lock`, configuration and extra
+analysis inputs. Add path dependency sources at their declared paths. For a
+project nested below shared files, set `project_dir` and map source destinations
+accordingly. The test recomputes the manifest in an isolated offline workspace.
+No checked-in file is rewritten. On failure, the regenerated manifest is retained
+in Bazel's undeclared test outputs for comparison.
