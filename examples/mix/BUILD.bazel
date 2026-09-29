@@ -28,5 +28,8 @@ generated_sources(name = "generated")
 ex_unit_test(
     name = "legacy_interop_test",
     srcs = ["legacy_interop_test.exs"],
-    deps = ["//dep:app"],
+    deps = [
+        "//dep:app",
+        "//rebar:app",
+    ],
 )

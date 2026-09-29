@@ -54,52 +54,91 @@ defmodule RulesElixir.MixRunner do
     end
 
     File.cd!(project, fn ->
-      post_config = [build_path: build, prune_code_paths: false]
+      if config["operation"] == "rebar3" do
+        app_path = Path.join(lib, config["app"])
+        File.mkdir_p!(app_path)
 
-      post_config =
-        if config["is_dependency"],
-          do: Keyword.put(post_config, :consolidate_protocols, false),
-          else: post_config
-
-      Mix.Project.in_project(
-        String.to_atom(config["app"]),
-        ".",
-        post_config,
-        fn _ ->
-          unless to_string(Mix.Project.config()[:app]) == config["app"],
-            do: raise("Bazel app_name differs from Mix project application")
-
-          if config_path = config["compile_config"] do
-            old_env = Mix.env()
-            Mix.env(String.to_atom(config["config_environment"]))
-
-            try do
-              Mix.Tasks.Loadconfig.run([Path.expand(config_path, execroot)])
-            after
-              Mix.env(old_env)
-            end
-          else
-            unless config["is_dependency"], do: Mix.Tasks.Loadconfig.run([])
-          end
-
-          case config["operation"] do
-            "compile" ->
-              args = ["--no-deps-check", "--no-deps-compile", "--no-prune-code-paths"]
-
-              # Aliases may generate resources. They run only in this compile
-              # action; tests and releases call their assembly-only tasks directly.
-              case Mix.Task.run("compile", args) do
-                {:error, diagnostics} ->
-                  raise("Mix compilation failed: #{inspect(diagnostics)}")
-
-                _ ->
-                  :ok
-              end
-
-              export_app(config, Mix.Project.app_path(), execroot)
-          end
+        for dir <- ~w(include priv src ebin), File.dir?(dir) do
+          File.ln_s!(Path.expand(dir), Path.join(app_path, dir))
         end
-      )
+
+        rebar_config =
+          Mix.Rebar.load_config(".") |> Mix.Rebar.dependency_config() |> offline_rebar_config()
+
+        rebar_config_path = Path.join(work, "rebar.config")
+        File.write!(rebar_config_path, Mix.Rebar.serialize_config(rebar_config))
+
+        {_, status} =
+          System.cmd(
+            System.find_executable("escript"),
+            [
+              Path.expand(config["rebar3"], execroot),
+              "bare",
+              "compile",
+              "--paths",
+              Path.join(lib, "*/ebin")
+            ],
+            into: IO.stream(),
+            env: [
+              {"REBAR_BARE_COMPILER_OUTPUT_DIR", app_path},
+              {"REBAR_SKIP_PROJECT_PLUGINS", "true"},
+              {"REBAR_CONFIG", rebar_config_path},
+              {"REBAR_PROFILE", "prod"},
+              {"REBAR_OFFLINE", "true"},
+              {"TERM", "dumb"}
+            ]
+          )
+
+        if status != 0, do: raise("Rebar compilation failed for #{config["app"]}")
+        export_app(config, app_path, execroot)
+      else
+        post_config = [build_path: build, prune_code_paths: false]
+
+        post_config =
+          if config["is_dependency"],
+            do: Keyword.put(post_config, :consolidate_protocols, false),
+            else: post_config
+
+        Mix.Project.in_project(
+          String.to_atom(config["app"]),
+          ".",
+          post_config,
+          fn _ ->
+            unless to_string(Mix.Project.config()[:app]) == config["app"],
+              do: raise("Bazel app_name differs from Mix project application")
+
+            if config_path = config["compile_config"] do
+              old_env = Mix.env()
+              Mix.env(String.to_atom(config["config_environment"]))
+
+              try do
+                Mix.Tasks.Loadconfig.run([Path.expand(config_path, execroot)])
+              after
+                Mix.env(old_env)
+              end
+            else
+              unless config["is_dependency"], do: Mix.Tasks.Loadconfig.run([])
+            end
+
+            case config["operation"] do
+              "compile" ->
+                args = ["--no-deps-check", "--no-deps-compile", "--no-prune-code-paths"]
+
+                # Aliases may generate resources. They run only in this compile
+                # action; tests and releases call their assembly-only tasks directly.
+                case Mix.Task.run("compile", args) do
+                  {:error, diagnostics} ->
+                    raise("Mix compilation failed: #{inspect(diagnostics)}")
+
+                  _ ->
+                    :ok
+                end
+
+                export_app(config, Mix.Project.app_path(), execroot)
+            end
+          end
+        )
+      end
     end)
   end
 
@@ -114,6 +153,21 @@ defmodule RulesElixir.MixRunner do
       source = if not File.dir?(source) and kind in ~w(priv include), do: kind, else: source
       if File.dir?(source), do: copy_contents(source, output)
     end
+  end
+
+  defp offline_rebar_config(config) do
+    if config[:plugins] not in [nil, []] and config[:provider_hooks] not in [nil, []],
+      do: raise("Rebar plugin provider hooks require an explicit declared build adapter")
+
+    # Bare compilation does not need documentation/formatting plugins. Rebar
+    # otherwise tries to fetch them even with REBAR_OFFLINE and project plugins
+    # disabled. Keep only the profile Mix actually uses, and reject hooked plugins.
+    config
+    |> Keyword.delete(:plugins)
+    |> Keyword.delete(:project_plugins)
+    |> Keyword.update(:profiles, [], fn profiles ->
+      for {:prod, values} <- profiles, do: {:prod, offline_rebar_config(values)}
+    end)
   end
 
   defp stage(source, target) do

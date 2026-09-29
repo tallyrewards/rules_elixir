@@ -112,6 +112,8 @@ def _compile(ctx, manager):
         "dependencies": dependency_description(apps),
         "outputs": {k: v.path for k, v in outputs.items()},
     }
+    if manager == "rebar3":
+        config["rebar3"] = ctx.file._rebar3.path
     config_inputs = depset()
     if ctx.attr.compile_config:
         compile_config = ctx.attr.compile_config[MixConfigInfo]
@@ -120,7 +122,7 @@ def _compile(ctx, manager):
         config["config_environment"] = ctx.attr._mix_env[BuildSettingInfo].value
     config_file = ctx.actions.declare_file(ctx.label.name + ".mix.json")
     ctx.actions.write(config_file, json.encode(config))
-    inputs = depset(ctx.files.srcs + ctx.files.generated_srcs + [ctx.file.project_file] + ctx.files.archives + dependency_inputs(apps), transitive = [config_inputs])
+    inputs = depset(ctx.files.srcs + ctx.files.generated_srcs + [ctx.file.project_file] + ctx.files.archives + dependency_inputs(apps) + ([ctx.file._rebar3] if manager == "rebar3" else []), transitive = [config_inputs])
     tc = toolchain(ctx)
     ctx.actions.run_shell(
         inputs = depset([config_file, ctx.file._runner], transitive = [inputs, tc.files]),
@@ -151,6 +153,9 @@ def _compile(ctx, manager):
 def _impl(ctx):
     return _compile(ctx, "mix")
 
+def _rebar_impl(ctx):
+    return _compile(ctx, "rebar3")
+
 _ATTRS = {
     "app_name": attr.string(mandatory = True),
     "project_file": attr.label(mandatory = True, allow_single_file = True),
@@ -170,4 +175,11 @@ mix_app = rule(
     attrs = _ATTRS,
     toolchains = ["//:toolchain_type"],
     provides = [ErlangAppInfo, MixProjectInfo],
+)
+
+rebar_app = rule(
+    implementation = _rebar_impl,
+    attrs = dict(_ATTRS, _rebar3 = attr.label(default = Label("@rebar3//file"), allow_single_file = True, cfg = "exec")),
+    toolchains = ["//:toolchain_type"],
+    provides = [ErlangAppInfo],
 )

@@ -7,6 +7,7 @@
 - Include Erlang sources, headers and resources in the Hex bootstrap archive.
 - Export versioned Mix dependency manifests using offline dev, test and prod analysis.
 - Compile Mix applications with declared configuration, resources and prebuilt OTP dependencies.
+- Compile Rebar applications offline against the same OTP providers.
 
 ## 1.3.0
 

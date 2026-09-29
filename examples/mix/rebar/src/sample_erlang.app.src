@@ -1,0 +1,1 @@
+{application, sample_erlang, [{description, "Rebar fixture"}, {vsn, "0.1.0"}, {modules, []}, {registered, []}, {applications, [kernel, stdlib]}]}.
