@@ -9,3 +9,8 @@ elixir_vars(
 )
 
 exports_files(["dependency_sync.exs"])
+
+exports_files(
+    ["compare_releases.exs"],
+    visibility = ["//visibility:public"],
+)
