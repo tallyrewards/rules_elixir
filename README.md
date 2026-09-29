@@ -9,7 +9,7 @@ metadata and the `ERL_LIBS` staging all come from there.
 
 ## Supported versions
 
-Requires bzlmod and `rules_erlang` 3.18.0 or newer. Bazel 7 is not supported;
+Requires bzlmod and `rules_erlang` 3.21.0 or newer. Bazel 7 is not supported;
 the Bazel Central Registry presubmit covers 8.x and 9.x, and `.bazelversion`
 pins what GitHub CI runs.
 
@@ -36,36 +36,35 @@ documented fix or addition. See [CHANGELOG.md](./CHANGELOG.md).
 
 ## Installation
 
-> **Git pre-release only.** `rules_elixir` and `rules_erlang` are both awaiting
-> Bazel Central Registry entries, so `bazel_dep` alone will not resolve and you
-> need an override for each. Overrides only take effect in the **root module**,
-> which is why you declare both even though only one is a direct dependency.
-> Once the registry entries land, delete the overrides and keep the `bazel_dep`
-> lines; nothing else changes.
+The development API is not published to the Bazel Central Registry. Start with
+a local checkout and declare these dependencies in the consuming project's
+`MODULE.bazel`:
 
 ```starlark
-bazel_dep(name = "rules_elixir", version = "1.2.0")
-bazel_dep(name = "rules_erlang", version = "3.18.0")
+bazel_dep(name = "rules_elixir", version = "1.3.0")
+bazel_dep(name = "rules_erlang", version = "3.21.0")
 
-git_override(
+local_path_override(
     module_name = "rules_elixir",
-    remote = "https://github.com/bazelverse/rules_elixir.git",
-    commit = "0000000000000000000000000000000000000000",  # v1.2.0
+    path = "../rules_elixir",  # Relative to the consuming project's MODULE.bazel.
 )
 
 git_override(
     module_name = "rules_erlang",
     remote = "https://github.com/bazelverse/rules_erlang.git",
-    commit = "5531a30ab87ed7e2a63eb1a901c4eeac1bb2bcc6",  # 3.18.0
+    commit = "13977b3309fd0b0d6795f322cffd86a8c161be64",  # 3.21.0
 )
 ```
 
-`commit` takes a full SHA, not a tag. Pin the commit a release tag points at
-rather than the tag itself: a SHA cannot be moved, and it is the same thing the
-registry will hand you later. `git rev-list -n1 v1.2.0` prints it.
+Overrides take effect only in the root module, so the consuming project needs
+both even though `rules_elixir` already depends on `rules_erlang`. The examples
+in this repository use this setup.
 
-The `version` in `bazel_dep` is still required. It is what the module reports to
-the rest of the graph; the override decides what is actually fetched.
+For a shared build, replace the local override with a `git_override` pointing
+to the repository and full commit SHA containing the rules you validated.
+Keep that revision immutable; a version in `bazel_dep` does not identify the
+source fetched by an override. Registry-only installation must wait until the
+required versions are published.
 
 ### Then, in the same `MODULE.bazel`
 
@@ -110,7 +109,7 @@ build --repo_env=RULES_ERLANG_SKIP_SYSTEM=1
 
 | Rule | What it does |
 | --- | --- |
-| `elixir_app` | Compile an Elixir application into an OTP app |
+| `elixir_app` | Compile an Elixir application directly, without Mix |
 | `elixir_external` | Wrap an Elixir installation outside the build |
 | `ex_unit_test` | Run an ExUnit suite as a Bazel test |
 | `mix_archive_build` | Build a `.ez` Mix archive |
@@ -176,13 +175,12 @@ Hex has no dependencies of its own, so it bootstraps through
 `mix_archive_build` with an empty dependency graph. That is why this can live
 here rather than in every consuming module.
 
-Fetching Hex *packages* is a different job from installing Hex the tool. For a
-handful of packages see `rules_erlang`'s `erlang_package` extension; for a whole
-application closure, its `hex_packages_extension`.
+Fetching Hex packages is separate from installing Hex itself. For individual
+Erlang packages, see `rules_erlang`'s `erlang_package` extension.
 
 ## Examples
 
-See the `examples` directory. 
+See the `examples` directory.
 
 ## License
 
