@@ -3,7 +3,9 @@
 # Prerequisites, both one-time and both outside this repository:
 #   1. A fork of bazelbuild/bazel-central-registry under the bazelverse org.
 #   2. A classic PAT with `repo` and `workflow` scopes, stored as the
-#      BCR_PUBLISH_TOKEN Actions secret.
+#      BCR_PUBLISH_TOKEN Actions secret. publish-to-bcr needs a classic token to
+#      open a pull request in another owner's repository. Create it on a machine
+#      account whose only write access is the registry fork.
 #
 # Replaces a workflow that published to rabbitmq/bazel-central-registry@erlang-packages,
 # a private registry fork this project can no longer write to.
@@ -24,7 +26,8 @@ on:
 
 jobs:
   publish:
-    uses: bazel-contrib/publish-to-bcr/.github/workflows/publish.yaml@v1.4.2
+    # Pinned to a commit because this workflow receives the publish token.
+    uses: bazel-contrib/publish-to-bcr/.github/workflows/publish.yaml@ad6879fd015a01c3e3b1b318fe3c061f928ac2fb # v1.4.2
     with:
       tag_name: ${{ inputs.tag_name || github.ref_name }}
       registry_fork: bazelverse/bazel-central-registry

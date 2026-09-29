@@ -6,34 +6,43 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
     - name: CHECKOUT
-      uses: actions/checkout@v4
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       with:
         path: rules_elixir
+        persist-credentials: false
     - name: ASSERT VERSIONS
       id: versions
       working-directory: rules_elixir
+      env:
+        TAG: ${{ github.ref_name }}
       run: |
         sudo npm install --global --silent @bazel/buildozer
 
         VERSION_BAZEL="$(cat MODULE.bazel | buildozer 'print version' -:%module)"
 
-        if [[ "${{ github.ref_name }}" != "v$VERSION_BAZEL" ]]; then
-          echo "Version in MODULE.bazel ($VERSION_BAZEL) does not match tag (${{ github.ref_name }})"
+        if [[ "$TAG" != "v$VERSION_BAZEL" ]]; then
+          echo "Version in MODULE.bazel ($VERSION_BAZEL) does not match tag ($TAG)"
           exit 1
         fi
 
         echo "version=$VERSION_BAZEL" | tee -a $GITHUB_OUTPUT
     - name: FETCH THE SOURCE ARCHIVE
+      env:
+        VERSION: ${{ steps.versions.outputs.version }}
+        REPOSITORY: ${{ github.repository }}
+        REF: ${{ github.ref }}
       run: |
         curl \
           -L \
-          -o rules_elixir-${{ steps.versions.outputs.version }}.tar.gz \
-          https://github.com/${{ github.repository }}/archive/${{ github.ref }}.tar.gz
+          -o "rules_elixir-$VERSION.tar.gz" \
+          "https://github.com/$REPOSITORY/archive/$REF.tar.gz"
     - name: CREATE RELEASE
       id: create-release
-      uses: ncipollo/release-action@v1.14.0
+      uses: ncipollo/release-action@2c591bcc8ecdcd2db72b97d6147f871fcd833ba5 # v1.14.0
       with:
         name: rules_elixir ${{ steps.versions.outputs.version }}
         allowUpdates: true
